@@ -1,0 +1,4 @@
+# Solo necesario para conectar a PostgreSQL (ej: al desplegar en Render).
+# En local con SQLite no hace falta instalar esto.
+-r requirements.txt
+psycopg2-binary==2.9.9

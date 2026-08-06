@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Punto de Venta</title>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+  body { height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+  header {
+    background: var(--verde-caja-oscuro);
+    color: white;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  header .marca { display: flex; align-items: center; gap: 10px; font-family: var(--f-display); font-weight: 800; }
+  header .marca-icono {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: rgba(255,255,255,0.15);
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+  }
+  header .turno-badge {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.12);
+    padding: 7px 12px;
+    border-radius: 100px;
+    font-size: 12.5px;
+  }
+  header .turno-badge .punto { width: 7px; height: 7px; border-radius: 50%; background: #6EE7B7; }
+  header .conexion-badge {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.12);
+    padding: 7px 12px;
+    border-radius: 100px;
+    font-size: 12.5px;
+  }
+  header .conexion-badge .punto { width: 7px; height: 7px; border-radius: 50%; }
+  header .conexion-badge.online .punto { background: #6EE7B7; }
+  header .conexion-badge.offline { background: var(--ambar); color: #4A2E05; }
+  header .conexion-badge.offline .punto { background: #4A2E05; }
+  header .acciones-caja { display: flex; align-items: center; gap: 8px; }
+  header .acciones-caja button {
+    background: rgba(255,255,255,0.12);
+    color: white;
+    padding: 8px 14px;
+    font-size: 12.5px;
+  }
+  header .acciones-caja button:hover { background: rgba(255,255,255,0.22); }
+  header .usuario { display: flex; align-items: center; gap: 14px; font-size: 13px; }
+  header .usuario button {
+    background: rgba(255,255,255,0.12);
+    color: white;
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+  header .usuario button:hover { background: rgba(255,255,255,0.22); }
+  header .btn-cerrar-turno { background: var(--ambar) !important; color: #4A2E05 !important; }
+  header .btn-cerrar-turno:hover { background: #d99226 !important; }
+
+  .layout { display: flex; flex: 1; min-height: 0; }
+
+  /* ---------- Columna productos ---------- */
+  .panel-productos { flex: 1; display: flex; flex-direction: column; padding: 20px 24px; min-width: 0; }
+  .barra-busqueda { display: flex; gap: 10px; margin-bottom: 16px; flex-shrink: 0; }
+  .buscador { position: relative; flex: 1; }
+  .buscador input {
+    width: 100%;
+    padding: 16px 16px 16px 46px;
+    font-size: 16px;
+    border-radius: 14px;
+    border: 1px solid var(--linea);
+    background: var(--superficie);
+  }
+  .buscador::before {
+    content: "";
+    position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+    width: 18px; height: 18px;
+    background: var(--texto-tenue);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") center/contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") center/contain no-repeat;
+  }
+  #select-categoria { min-width: 160px; border-radius: 14px; font-size: 14px; }
+
+  .grid-productos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+    overflow-y: auto;
+    padding-bottom: 20px;
+    align-content: start;
+  }
+  .tarjeta-producto {
+    background: var(--superficie);
+    border: 1px solid var(--linea);
+    border-radius: 14px;
+    padding: 10px;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 108px;
+    box-shadow: var(--sombra);
+  }
+  .tarjeta-producto:hover:not(:disabled) { border-color: var(--verde-caja); transform: translateY(-2px); }
+  .tarjeta-producto:disabled { opacity: 0.45; cursor: not-allowed; }
+  .tp-imagen {
+    width: 100%; height: 84px;
+    border-radius: 10px;
+    background: var(--fondo);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .tp-imagen img { width: 100%; height: 100%; object-fit: cover; }
+  .tp-imagen .tp-imagen-placeholder { color: var(--texto-tenue); font-size: 22px; opacity: 0.5; }
+  .tp-cuerpo { padding: 0 4px 2px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .tp-nombre { font-weight: 700; font-size: 14px; line-height: 1.25; }
+  .tp-fila { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
+  .tp-precio { font-family: var(--f-mono); font-weight: 600; color: var(--verde-caja-oscuro); font-size: 15px; }
+  .tp-stock { font-size: 11px; color: var(--texto-tenue); }
+  .tp-stock.bajo { color: var(--rojo); font-weight: 600; }
+
+  .estado-vacio { color: var(--texto-tenue); text-align: center; margin-top: 60px; font-size: 14px; }
+
+  /* ---------- Columna ticket ---------- */
+  .panel-ticket {
+    width: 380px;
+    flex-shrink: 0;
+    background: var(--superficie);
+    border-left: 1px solid var(--linea);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .ticket-header {
+    padding: 20px 22px 14px;
+    border-bottom: 1px dashed var(--linea);
+  }
+  .ticket-header h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--texto-tenue); }
+  .ticket-lineas { flex: 1; overflow-y: auto; padding: 10px 22px; }
+  .linea-ticket {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--fondo);
+  }
+  .linea-info { flex: 1; min-width: 0; }
+  .linea-nombre { font-size: 13.5px; font-weight: 600; }
+  .linea-precio-u { font-size: 11.5px; color: var(--texto-tenue); font-family: var(--f-mono); }
+  .linea-cant {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--fondo); border-radius: 8px; padding: 4px;
+  }
+  .linea-cant button {
+    width: 24px; height: 24px; border-radius: 6px;
+    background: var(--superficie); font-size: 14px; line-height: 1;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  }
+  .linea-cant span { font-family: var(--f-mono); font-size: 13px; min-width: 18px; text-align: center; }
+  .linea-subtotal { font-family: var(--f-mono); font-weight: 600; font-size: 13.5px; width: 74px; text-align: right; }
+  .linea-quitar { background: none; color: var(--rojo); font-size: 12px; padding: 4px; }
+
+  .ticket-vacio { text-align: center; color: var(--texto-tenue); font-size: 13px; padding: 40px 10px; }
+
+  .ticket-totales { padding: 16px 22px; border-top: 1px dashed var(--linea); flex-shrink: 0; }
+  .fila-total { display: flex; justify-content: space-between; font-size: 13px; color: var(--texto-tenue); margin-bottom: 6px; }
+  .fila-total.grande { color: var(--texto); font-size: 20px; font-weight: 800; font-family: var(--f-display); margin-top: 10px; }
+  .fila-total .mono { font-family: var(--f-mono); }
+
+  .btn-cobrar {
+    width: 100%;
+    margin-top: 16px;
+    padding: 18px;
+    background: var(--verde-caja);
+    color: white;
+    font-size: 16px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-cobrar:hover:not(:disabled) { background: var(--verde-caja-oscuro); }
+  .btn-cobrar:disabled { background: var(--linea); color: var(--texto-tenue); cursor: not-allowed; }
+
+  .btn-vaciar { width: 100%; margin-top: 8px; background: none; color: var(--texto-tenue); font-size: 12px; padding: 6px; }
+  .btn-vaciar:hover { color: var(--rojo); }
+
+  /* ---------- Modales genericos ---------- */
+  .modal-fondo {
+    position: fixed; inset: 0; background: rgba(20,25,35,0.55);
+    display: none; align-items: center; justify-content: center; z-index: 100;
+  }
+  .modal-fondo.visible { display: flex; }
+  .comprobante {
+    background: white; border-radius: 16px; width: 320px; padding: 28px 26px;
+    text-align: center;
+  }
+  .comprobante .icono-ok {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--verde-caja-claro); color: var(--verde-caja-oscuro);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; margin: 0 auto 14px;
+  }
+  .comprobante h3 { font-size: 18px; margin-bottom: 4px; }
+  .comprobante .num { color: var(--texto-tenue); font-family: var(--f-mono); font-size: 13px; margin-bottom: 18px; }
+  .comprobante .total-final { font-size: 26px; font-weight: 800; font-family: var(--f-display); margin-bottom: 22px; }
+  .comprobante button { width: 100%; padding: 13px; background: var(--verde-caja); color: white; }
+
+  .modal-caja {
+    background: white; border-radius: 18px; width: 380px; padding: 30px 28px;
+    position: relative;
+  }
+  .modal-caja h3 { font-size: 19px; margin-bottom: 6px; }
+  .modal-caja .sub { color: var(--texto-tenue); font-size: 13px; margin-bottom: 20px; line-height: 1.4; }
+  .modal-caja label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .campo-monto { position: relative; margin-bottom: 18px; }
+  .campo-monto span {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    font-family: var(--f-mono); color: var(--texto-tenue); font-size: 18px;
+  }
+  .campo-monto input {
+    width: 100%; padding: 14px 14px 14px 32px; font-size: 20px;
+    font-family: var(--f-mono); font-weight: 600; text-align: right;
+  }
+  .modal-caja .btn-confirmar { width: 100%; padding: 15px; background: var(--verde-caja); color: white; font-size: 15px; }
+  .modal-caja .btn-confirmar:hover { background: var(--verde-caja-oscuro); }
+  .modal-caja .btn-confirmar:disabled { background: var(--linea); color: var(--texto-tenue); }
+  .btn-cerrar-modal-x {
+    position: absolute; top: 18px; right: 18px;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--fondo); color: var(--texto-tenue); font-size: 15px;
+  }
+  .btn-cerrar-modal-x:hover { background: var(--rojo-claro); color: var(--rojo); }
+
+  /* ---------- Modal de cobro (propina + pagos divididos) ---------- */
+  .modal-cobro { width: 400px; }
+  .resumen-cobro { background: var(--fondo); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; }
+  .fila-cobro { display: flex; justify-content: space-between; font-size: 13.5px; padding: 3px 0; }
+  .fila-cobro.total { font-weight: 700; font-size: 16px; border-top: 1px dashed var(--linea); margin-top: 6px; padding-top: 8px; }
+  .fila-cobro.restante { font-weight: 700; font-size: 15px; margin-top: 4px; }
+  .fila-cobro.restante.saldado { color: var(--verde-caja-oscuro); }
+  .fila-cobro.restante.pendiente { color: var(--rojo); }
+  .opciones-pago { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+  .opcion-pago {
+    background: var(--fondo); border: 2px solid transparent; border-radius: 10px;
+    padding: 10px 6px; display: flex; flex-direction: column; align-items: center; gap: 5px;
+    font-size: 11.5px; font-weight: 600; color: var(--texto);
+  }
+  .opcion-pago .icono-pago { font-size: 18px; }
+  .opcion-pago:hover { border-color: var(--verde-caja); background: var(--verde-caja-claro); }
+
+  /* ---------- Popup de banco/proveedor ---------- */
+  .modal-banco { width: 320px; }
+  .lista-bancos { display: flex; flex-direction: column; gap: 8px; margin: 16px 0 4px; max-height: 320px; overflow-y: auto; }
+  .opcion-banco {
+    background: var(--fondo); border: 2px solid transparent; border-radius: 10px;
+    padding: 13px 16px; text-align: left; font-size: 14px; font-weight: 600; color: var(--texto);
+  }
+  .opcion-banco:hover { border-color: var(--verde-caja); background: var(--verde-caja-claro); }
+  .sin-bancos-config { text-align: center; color: var(--texto-tenue); font-size: 13px; padding: 20px 10px; line-height: 1.5; }
+  .lista-pagos-agregados { margin-bottom: 10px; max-height: 140px; overflow-y: auto; }
+  .fila-pago-agregado {
+    display: flex; align-items: center; gap: 8px; padding: 8px 0;
+    border-bottom: 1px solid var(--fondo);
+  }
+  .fila-pago-agregado .metodo-nombre { flex: 1; font-size: 13px; font-weight: 600; }
+  .fila-pago-agregado input { width: 100px; text-align: right; padding: 6px 8px; font-family: var(--f-mono); }
+  .fila-pago-agregado .quitar-pago { background: none; color: var(--rojo); padding: 4px 6px; font-size: 12px; }
+
+  /* ---------- Modal cierre / arqueo ---------- */
+  .modal-arqueo { width: 460px; max-height: 86vh; display: flex; flex-direction: column; }
+  .modal-arqueo .resumen-esperado {
+    background: var(--verde-caja-claro); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .modal-arqueo .resumen-esperado .etiqueta { font-size: 12px; color: var(--verde-caja-oscuro); font-weight: 600; }
+  .modal-arqueo .resumen-esperado .valor { font-family: var(--f-mono); font-size: 20px; font-weight: 700; color: var(--verde-caja-oscuro); }
+  .lista-denominaciones { overflow-y: auto; flex: 1; margin: 0 -6px; padding: 0 6px; }
+  .fila-denominacion {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--fondo);
+  }
+  .fila-denominacion .etiqueta-billete {
+    width: 84px; font-family: var(--f-mono); font-weight: 600; font-size: 14px;
+  }
+  .fila-denominacion input { flex: 1; text-align: center; padding: 8px; }
+  .fila-denominacion .subtotal-billete {
+    width: 92px; text-align: right; font-family: var(--f-mono); font-size: 13px; color: var(--texto-tenue);
+  }
+  .arqueo-totales { border-top: 1px dashed var(--linea); margin-top: 14px; padding-top: 14px; flex-shrink: 0; }
+  .arqueo-fila { display: flex; justify-content: space-between; font-size: 13.5px; margin-bottom: 6px; }
+  .arqueo-fila.diferencia { font-weight: 700; font-size: 15px; }
+  .arqueo-fila.diferencia.positiva { color: var(--verde-caja-oscuro); }
+  .arqueo-fila.diferencia.negativa { color: var(--rojo); }
+  .modal-arqueo textarea {
+    width: 100%; margin-top: 10px; font-family: var(--f-texto); font-size: 13px;
+    border: 1px solid var(--linea); border-radius: 10px; padding: 10px; resize: vertical; min-height: 50px;
+  }
+  .modal-arqueo .btn-confirmar { margin-top: 14px; }
+
+  /* ---------- Modal movimientos de caja ---------- */
+  .selector-tipo-mov { display: flex; gap: 10px; margin-bottom: 16px; }
+  .opcion-tipo-mov {
+    flex: 1; padding: 12px; border-radius: 10px; background: var(--fondo);
+    border: 2px solid transparent; font-weight: 600; font-size: 13.5px;
+  }
+  .opcion-tipo-mov.seleccionada.ingreso { border-color: var(--verde-caja); background: var(--verde-caja-claro); color: var(--verde-caja-oscuro); }
+  .opcion-tipo-mov.seleccionada.egreso { border-color: var(--rojo); background: var(--rojo-claro); color: var(--rojo); }
+  .modal-caja textarea {
+    width: 100%; font-family: var(--f-texto); font-size: 13px; margin-bottom: 16px;
+    border: 1px solid var(--linea); border-radius: 10px; padding: 10px; resize: vertical; min-height: 50px;
+  }
+
+  /* ---------- Modal ventas del turno ---------- */
+  .modal-ventas-turno { width: 460px; max-height: 80vh; display: flex; flex-direction: column; }
+  .lista-ventas-turno { overflow-y: auto; flex: 1; margin-top: 12px; }
+  .fila-venta-turno {
+    display: flex; align-items: center; gap: 10px; padding: 12px 0;
+    border-bottom: 1px solid var(--fondo);
+  }
+  .fila-venta-turno.anulada { opacity: 0.5; }
+  .fila-venta-turno .info-venta { flex: 1; }
+  .fila-venta-turno .num-venta { font-size: 13px; font-weight: 600; font-family: var(--f-mono); }
+  .fila-venta-turno .hora-venta { font-size: 11.5px; color: var(--texto-tenue); }
+  .fila-venta-turno .total-venta { font-family: var(--f-mono); font-weight: 600; font-size: 14px; }
+  .fila-venta-turno .btn-anular { background: var(--rojo-claro); color: var(--rojo); padding: 7px 12px; font-size: 12px; }
+  .fila-venta-turno .badge-anulada { background: var(--linea); color: var(--texto-tenue); padding: 3px 8px; border-radius: 100px; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="marca"><div class="marca-icono">$</div> <span id="nombre-negocio">Punto de Venta</span></div>
+  <div class="turno-badge" id="turno-badge" style="display:none;">
+    <span class="punto"></span>
+    <span id="turno-badge-texto"></span>
+  </div>
+  <div class="conexion-badge online" id="conexion-badge">
+    <span class="punto"></span>
+    <span id="conexion-badge-texto">En linea</span>
+  </div>
+  <div class="acciones-caja" id="acciones-caja" style="display:none;">
+    <button id="btn-movimiento-caja">Caja</button>
+    <button id="btn-ver-ventas-turno">Ventas del turno</button>
+    <button id="btn-cerrar-turno" class="btn-cerrar-turno">Cerrar turno</button>
+  </div>
+  <div class="usuario">
+    <span id="nombre-usuario"></span>
+    <button id="btn-salir">Cerrar sesion</button>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="panel-productos">
+    <div class="barra-busqueda">
+      <div class="buscador">
+        <input id="buscar" type="text" placeholder="Buscar por nombre o codigo..." autofocus>
+      </div>
+      <select id="select-categoria">
+        <option value="">Todas las categorias</option>
+      </select>
+    </div>
+    <div class="grid-productos" id="grid-productos">
+      <div class="estado-vacio">Cargando productos...</div>
+    </div>
+  </div>
+
+  <div class="panel-ticket">
+    <div class="ticket-header"><h2>Ticket actual</h2></div>
+    <div class="ticket-lineas" id="ticket-lineas">
+      <div class="ticket-vacio">Toca un producto para agregarlo</div>
+    </div>
+    <div class="ticket-totales">
+      <div class="fila-total"><span>Items</span><span class="mono" id="total-items">0</span></div>
+      <div class="fila-total grande"><span>Total</span><span class="mono" id="total-monto">$0,00</span></div>
+      <button class="btn-cobrar" id="btn-cobrar" disabled>Cobrar</button>
+      <button class="btn-vaciar" id="btn-vaciar">Vaciar ticket</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-fondo" id="modal-comprobante">
+  <div class="comprobante">
+    <div class="icono-ok">✓</div>
+    <h3>Venta registrada</h3>
+    <div class="num" id="comprobante-num"></div>
+    <div class="total-final mono" id="comprobante-total"></div>
+    <button id="btn-nueva-venta">Nueva venta</button>
+  </div>
+</div>
+
+<!-- Apertura de turno: bloquea el POS hasta que se declare el efectivo inicial -->
+<div class="modal-fondo" id="modal-apertura">
+  <div class="modal-caja">
+    <h3>Apertura de turno</h3>
+    <div class="sub">Antes de empezar a vender, contá el efectivo que hay en la caja y cargá el monto inicial.</div>
+    <label for="monto-apertura">Efectivo inicial</label>
+    <div class="campo-monto">
+      <span>$</span>
+      <input id="monto-apertura" type="number" min="0" step="1" placeholder="0" autofocus>
+    </div>
+    <button class="btn-confirmar" id="btn-confirmar-apertura">Abrir turno</button>
+  </div>
+</div>
+
+<!-- Cobro: propina + pagos (uno o varios metodos) -->
+<div class="modal-fondo" id="modal-pago">
+  <div class="modal-caja modal-cobro">
+    <button class="btn-cerrar-modal-x" id="btn-cerrar-modal-pago">✕</button>
+    <h3>Cobro</h3>
+    <div class="sub">Agregá una o más formas de pago hasta cubrir el total.</div>
+    <label for="input-propina">Propina (opcional)</label>
+    <div class="campo-monto" style="margin-bottom:14px;">
+      <span>$</span>
+      <input id="input-propina" type="number" min="0" step="1" value="0">
+    </div>
+    <div class="resumen-cobro">
+      <div class="fila-cobro"><span>Total productos</span><span class="mono" id="pago-total-productos">$0</span></div>
+      <div class="fila-cobro"><span>Propina</span><span class="mono" id="pago-total-propina">$0</span></div>
+      <div class="fila-cobro total"><span>Total a cobrar</span><span class="mono" id="pago-total-cobrar">$0</span></div>
+    </div>
+    <div class="opciones-pago">
+      <button class="opcion-pago" data-metodo="efectivo"><span class="icono-pago">💵</span>Efectivo</button>
+      <button class="opcion-pago" data-metodo="debito"><span class="icono-pago">💳</span>Debito</button>
+      <button class="opcion-pago" data-metodo="credito"><span class="icono-pago">💳</span>Credito</button>
+      <button class="opcion-pago" data-metodo="transferencia"><span class="icono-pago">🏦</span>Transf.</button>
+      <button class="opcion-pago" data-metodo="qr"><span class="icono-pago">📱</span>QR</button>
+    </div>
+    <div class="lista-pagos-agregados" id="lista-pagos-agregados"></div>
+    <div class="fila-cobro restante" id="fila-restante"><span>Restante</span><span class="mono" id="pago-restante">$0</span></div>
+    <button class="btn-confirmar" id="btn-confirmar-cobro" disabled>Confirmar cobro</button>
+  </div>
+</div>
+
+<!-- Popup: elegir banco/proveedor al tocar Debito, Credito, Transferencia o QR -->
+<div class="modal-fondo" id="modal-banco">
+  <div class="modal-caja modal-banco">
+    <button class="btn-cerrar-modal-x" id="btn-cerrar-modal-banco">✕</button>
+    <h3 id="titulo-modal-banco">Elegir banco</h3>
+    <div class="lista-bancos" id="lista-bancos"></div>
+  </div>
+</div>
+
+<!-- Movimiento de caja: ingreso o egreso -->
+<div class="modal-fondo" id="modal-movimiento">
+  <div class="modal-caja">
+    <button class="btn-cerrar-modal-x" id="btn-cerrar-modal-movimiento">✕</button>
+    <h3>Movimiento de caja</h3>
+    <div class="sub">Registrá un ingreso o egreso de efectivo que no es una venta.</div>
+    <div class="selector-tipo-mov">
+      <button type="button" class="opcion-tipo-mov" id="opcion-mov-ingreso" data-tipo="ingreso">Ingreso</button>
+      <button type="button" class="opcion-tipo-mov" id="opcion-mov-egreso" data-tipo="egreso">Egreso</button>
+    </div>
+    <label for="monto-movimiento">Monto</label>
+    <div class="campo-monto">
+      <span>$</span>
+      <input id="monto-movimiento" type="number" min="0" step="1" placeholder="0">
+    </div>
+    <label for="motivo-movimiento">Motivo</label>
+    <textarea id="motivo-movimiento" placeholder="Ej: pago a proveedor, retiro..."></textarea>
+    <button class="btn-confirmar" id="btn-confirmar-movimiento">Registrar movimiento</button>
+  </div>
+</div>
+
+<!-- Ventas del turno: permite anular -->
+<div class="modal-fondo" id="modal-ventas-turno">
+  <div class="modal-caja modal-ventas-turno">
+    <button class="btn-cerrar-modal-x" id="btn-cerrar-modal-ventas">✕</button>
+    <h3>Ventas del turno</h3>
+    <div class="sub">Podés anular una venta si hubo un error. El stock se repone automaticamente.</div>
+    <div class="lista-ventas-turno" id="lista-ventas-turno"></div>
+  </div>
+</div>
+
+<!-- Cierre de turno: arqueo contando cada denominacion de billete -->
+<div class="modal-fondo" id="modal-arqueo">
+  <div class="modal-caja modal-arqueo">
+    <button class="btn-cerrar-modal-x" id="btn-cerrar-modal-arqueo">✕</button>
+    <h3>Cierre de turno — Arqueo de caja</h3>
+    <div class="sub">Contá el efectivo billete por billete. El sistema compara contra lo esperado segun el turno.</div>
+    <div class="resumen-esperado">
+      <span class="etiqueta">Efectivo esperado en caja</span>
+      <span class="valor mono" id="arqueo-esperado">$0</span>
+    </div>
+    <div class="lista-denominaciones" id="lista-denominaciones"></div>
+    <div class="arqueo-totales">
+      <div class="arqueo-fila"><span>Total contado</span><span class="mono" id="arqueo-contado">$0</span></div>
+      <div class="arqueo-fila diferencia" id="arqueo-diferencia-fila"><span>Diferencia</span><span class="mono" id="arqueo-diferencia">$0</span></div>
+      <textarea id="arqueo-notas" placeholder="Notas del cierre (opcional)"></textarea>
+      <button class="btn-confirmar" id="btn-confirmar-cierre">Cerrar turno</button>
+    </div>
+  </div>
+</div>
+
+<!-- Resultado del cierre -->
+<div class="modal-fondo" id="modal-resultado-cierre">
+  <div class="comprobante">
+    <div class="icono-ok" id="resultado-cierre-icono">✓</div>
+    <h3 id="resultado-cierre-titulo">Turno cerrado</h3>
+    <div class="num" id="resultado-cierre-detalle"></div>
+    <button id="btn-cerrar-sesion-post-turno">Cerrar sesion</button>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/offline.js"></script>
+<script src="js/pos.js"></script>
+</body>
+</html>

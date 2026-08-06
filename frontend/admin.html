@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Backoffice · Ventas y Stock</title>
+<link rel="stylesheet" href="css/styles.css">
+<script src="js/vendor/chart.umd.js"></script>
+<style>
+  body { display: flex; height: 100vh; overflow: hidden; }
+
+  aside {
+    width: 230px; flex-shrink: 0;
+    background: var(--verde-caja-oscuro); color: white;
+    display: flex; flex-direction: column;
+    padding: 20px 14px;
+  }
+  .marca { display: flex; align-items: center; gap: 10px; padding: 0 10px 22px; font-family: var(--f-display); font-weight: 800; }
+  .marca-icono { width: 32px; height: 32px; border-radius: 8px; background: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .marca span#nombre-negocio-sidebar { font-size: 15px; line-height: 1.2; }
+  nav { display: flex; flex-direction: column; gap: 2px; flex: 1; overflow-y: auto; }
+  nav button {
+    background: none; color: rgba(255,255,255,0.75); text-align: left;
+    padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 500;
+    display: flex; align-items: center; gap: 10px;
+  }
+  nav button:hover { background: rgba(255,255,255,0.08); color: white; }
+  nav button.activo { background: rgba(255,255,255,0.16); color: white; font-weight: 700; }
+  .pie-sidebar { padding: 12px 10px 0; border-top: 1px solid rgba(255,255,255,0.15); margin-top: 10px; }
+  .pie-sidebar .nombre { font-size: 13px; font-weight: 600; }
+  .pie-sidebar button { width: 100%; margin-top: 8px; background: rgba(255,255,255,0.1); color: white; padding: 8px; font-size: 12px; }
+
+  main { flex: 1; overflow-y: auto; padding: 32px 40px; min-width: 0; }
+  .seccion { display: none; }
+  .seccion.activa { display: block; }
+  .encabezado-seccion { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; flex-wrap: wrap; gap: 12px; }
+  .encabezado-seccion h1 { font-size: 22px; }
+  .encabezado-seccion p { color: var(--texto-tenue); font-size: 13.5px; margin-top: 2px; }
+
+  .tarjetas-resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 26px; }
+  .tarjeta-metrica { background: var(--superficie); border: 1px solid var(--linea); border-radius: 14px; padding: 18px 20px; min-width: 0; }
+  .tarjeta-metrica .etiqueta { font-size: 12px; color: var(--texto-tenue); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .tarjeta-metrica .valor {
+    font-family: var(--f-mono); font-size: 19px; font-weight: 600; margin-top: 6px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .contenedor-chart { position: relative; height: 240px; }
+
+  .grid-dos-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 900px) { .grid-dos-cols { grid-template-columns: 1fr; } }
+
+  .panel { background: var(--superficie); border: 1px solid var(--linea); border-radius: 16px; padding: 22px; margin-bottom: 20px; }
+  .panel h3 { font-size: 15px; margin-bottom: 14px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; color: var(--texto-tenue); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; padding: 8px 10px; border-bottom: 1px solid var(--linea); }
+  td { padding: 10px 10px; border-bottom: 1px solid var(--fondo); }
+  tr:last-child td { border-bottom: none; }
+
+  .fila-formulario { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .fila-formulario input, .fila-formulario select { flex: 1; min-width: 130px; }
+  .btn-primario { background: var(--verde-caja); color: white; padding: 11px 18px; }
+  .btn-primario:hover { background: var(--verde-caja-oscuro); }
+  .btn-secundario { background: var(--fondo); color: var(--texto); padding: 11px 16px; }
+
+  .selector-regimen { display: flex; gap: 12px; }
+  .opcion-regimen {
+    flex: 1; border: 2px solid var(--linea); border-radius: 14px; padding: 18px; text-align: left; background: var(--superficie);
+  }
+  .opcion-regimen.seleccionada { border-color: var(--verde-caja); background: var(--verde-caja-claro); }
+  .opcion-regimen .titulo { font-weight: 700; font-size: 14.5px; margin-bottom: 4px; }
+  .opcion-regimen .desc { font-size: 12.5px; color: var(--texto-tenue); line-height: 1.4; }
+
+  .lista-detalle-compra { margin: 14px 0; }
+  .item-detalle-compra { display: grid; grid-template-columns: 1.6fr 0.8fr 1fr 0.8fr 1.2fr 0.7fr auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .item-detalle-compra select, .item-detalle-compra input { width: 100%; }
+  .btn-quitar-item { background: var(--rojo-claro); color: var(--rojo); padding: 8px; }
+  .etiquetas-item-compra { display: grid; grid-template-columns: 1.6fr 0.8fr 1fr 0.8fr 1.2fr 0.7fr auto; gap: 8px; font-size: 11px; color: var(--texto-tenue); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.03em; }
+
+  .dif-exacta { color: var(--texto-tenue); }
+  .dif-positiva { color: var(--verde-caja-oscuro); font-weight: 600; }
+  .dif-negativa { color: var(--rojo); font-weight: 600; }
+
+  .btn-accion-tabla { padding: 6px 10px; font-size: 12px; }
+  .btn-editar-fila { background: var(--fondo); color: var(--texto); }
+  .btn-inactivar-fila { background: var(--rojo-claro); color: var(--rojo); }
+  .btn-reactivar-fila { background: var(--verde-caja-claro); color: var(--verde-caja-oscuro); }
+  .celda-acciones { display: flex; gap: 6px; }
+
+  .miniatura { width: 34px; height: 34px; border-radius: 8px; object-fit: cover; background: var(--fondo); display: block; }
+  .miniatura-placeholder {
+    width: 34px; height: 34px; border-radius: 8px; background: var(--fondo);
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+  }
+
+  .modal-fondo {
+    position: fixed; inset: 0; background: rgba(20,25,35,0.5);
+    display: none; align-items: center; justify-content: center; z-index: 200;
+  }
+  .modal-fondo.visible { display: flex; }
+  .modal-editar { background: white; border-radius: 16px; width: 440px; padding: 26px 28px; max-height: 88vh; overflow-y: auto; }
+  .modal-editar h3 { font-size: 17px; margin-bottom: 16px; }
+  .modal-editar .campo { margin-bottom: 12px; }
+  .modal-editar label { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 5px; }
+  .modal-editar input { width: 100%; }
+  .modal-editar .fila-subir-imagen { display: flex; gap: 8px; align-items: center; }
+  .modal-editar .fila-subir-imagen input[type=file] { font-size: 12px; }
+  .modal-editar .acciones-modal { display: flex; gap: 10px; margin-top: 18px; }
+  .modal-editar .acciones-modal button { flex: 1; padding: 11px; }
+  .preview-imagen-actual { width: 60px; height: 60px; border-radius: 10px; object-fit: cover; background: var(--fondo); margin-bottom: 8px; }
+
+  .barra-filtro-fechas { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap; }
+  .barra-filtro-fechas .campo-fecha label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px; }
+  .badge-anulada-tabla { background: var(--linea); color: var(--texto-tenue); padding: 3px 8px; border-radius: 100px; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<aside>
+  <div class="marca"><div class="marca-icono">$</div> <span id="nombre-negocio-sidebar">Backoffice</span></div>
+  <nav>
+    <button data-seccion="resumen" class="activo">📊 Resumen</button>
+    <button data-seccion="productos">📦 Productos</button>
+    <button data-seccion="categorias">🏷️ Categorias</button>
+    <button data-seccion="compras">🧾 Compras</button>
+    <button data-seccion="inventario">📋 Inventario</button>
+    <button data-seccion="turnos">🕒 Turnos</button>
+    <button data-seccion="formas-pago">💳 Formas de pago</button>
+    <button data-seccion="informes">📈 Informes</button>
+    <button data-seccion="sucursales">🏬 Sucursales</button>
+    <button data-seccion="usuarios">👤 Usuarios</button>
+    <button data-seccion="config">⚙️ Negocio</button>
+  </nav>
+  <div class="pie-sidebar">
+    <div class="nombre" id="nombre-usuario"></div>
+    <button id="btn-salir">Cerrar sesion</button>
+  </div>
+</aside>
+
+<main>
+
+  <!-- RESUMEN -->
+  <section class="seccion activa" id="seccion-resumen">
+    <div class="encabezado-seccion">
+      <div><h1>Resumen</h1><p>Ventas y estado del stock</p></div>
+    </div>
+    <div class="tarjetas-resumen" id="tarjetas-resumen"></div>
+    <div class="grid-dos-cols">
+      <div class="panel">
+        <h3>Ventas por dia de la semana</h3>
+        <div class="contenedor-chart"><canvas id="chart-dia-semana"></canvas></div>
+        <table>
+          <thead><tr><th>Dia</th><th>Ventas</th><th>Total</th></tr></thead>
+          <tbody id="tabla-dia-semana"><tr><td colspan="3">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="panel">
+        <h3>Formas de pago mas utilizadas</h3>
+        <div class="contenedor-chart"><canvas id="chart-formas-pago"></canvas></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Productos mas vendidos</h3>
+      <table>
+        <thead><tr><th>Producto</th><th>Cant.</th><th>Ganancia</th></tr></thead>
+        <tbody id="tabla-mas-vendidos"><tr><td colspan="3">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h3>Ventas por mes</h3>
+      <div class="contenedor-chart"><canvas id="chart-por-mes"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3>Productos con stock bajo</h3>
+      <table>
+        <thead><tr><th>Producto</th><th>Stock actual</th><th>Stock minimo</th></tr></thead>
+        <tbody id="tabla-stock-bajo"><tr><td colspan="3">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- PRODUCTOS -->
+  <section class="seccion" id="seccion-productos">
+    <div class="encabezado-seccion">
+      <div><h1>Productos</h1><p>Precio de venta, IVA, categoria y costo promedio</p></div>
+    </div>
+    <div class="panel">
+      <h3>Nuevo producto</h3>
+      <form id="form-producto" class="fila-formulario">
+        <input name="codigo" placeholder="Codigo" required>
+        <input name="nombre" placeholder="Nombre" required>
+        <select name="categoria_id" id="select-categoria-nuevo-producto"><option value="">Sin categoria</option></select>
+        <input name="imagen_url" placeholder="URL de imagen (opcional)">
+        <input name="iva_porcentaje" type="number" step="0.1" placeholder="IVA %" value="21" required>
+        <input name="precio_venta" type="number" step="0.01" placeholder="Precio de venta" required>
+        <input name="stock_minimo" type="number" placeholder="Stock minimo" value="0">
+        <button type="submit" class="btn-primario">Agregar</button>
+      </form>
+    </div>
+    <div class="panel">
+      <h3 style="display:flex; align-items:center; justify-content:space-between;">
+        Catalogo
+        <label style="font-size:12.5px; font-weight:500; display:flex; align-items:center; gap:6px; color:var(--texto-tenue);">
+          <input type="checkbox" id="check-ver-inactivos"> Ver tambien los inactivos
+        </label>
+      </h3>
+      <table>
+        <thead><tr><th></th><th>Codigo</th><th>Nombre</th><th>Categoria</th><th>Precio venta</th><th>Costo prom.</th><th>IVA</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="tabla-productos"><tr><td colspan="9">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- CATEGORIAS -->
+  <section class="seccion" id="seccion-categorias">
+    <div class="encabezado-seccion">
+      <div><h1>Categorias</h1><p>Grupos para organizar el catalogo (ej: Hamburguesas, Bebidas)</p></div>
+    </div>
+    <div class="panel">
+      <h3>Nueva categoria</h3>
+      <form id="form-categoria" class="fila-formulario">
+        <input name="nombre" placeholder="Nombre de la categoria" required>
+        <input name="notas" placeholder="Notas (opcional)">
+        <button type="submit" class="btn-primario">Agregar</button>
+      </form>
+    </div>
+    <div class="panel">
+      <table>
+        <thead><tr><th>Nombre</th><th>Notas</th><th></th></tr></thead>
+        <tbody id="tabla-categorias"><tr><td colspan="3">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- COMPRAS -->
+  <section class="seccion" id="seccion-compras">
+    <div class="encabezado-seccion">
+      <div><h1>Compras</h1><p>Cargar mercaderia recibida: actualiza costo promedio y stock</p></div>
+    </div>
+    <div class="panel">
+      <h3>Proveedores</h3>
+      <form id="form-proveedor" class="fila-formulario">
+        <input name="nombre" placeholder="Nombre del proveedor" required>
+        <input name="cuit" placeholder="CUIT (opcional)">
+        <button type="submit" class="btn-primario">Agregar proveedor</button>
+      </form>
+    </div>
+    <div class="panel">
+      <h3>Nueva compra</h3>
+      <form id="form-compra">
+        <div class="fila-formulario">
+          <select id="compra-sucursal" required></select>
+          <select id="compra-proveedor"><option value="">Proveedor principal (opcional)</option></select>
+          <input id="compra-comprobante" placeholder="N° remito / factura (opcional)">
+        </div>
+        <div class="etiquetas-item-compra">
+          <span>Producto</span><span>Cantidad</span><span>Costo neto c/u</span><span>IVA %</span><span>Proveedor (si difiere)</span><span>Bultos</span><span></span>
+        </div>
+        <div class="lista-detalle-compra" id="lista-detalle-compra"></div>
+        <button type="button" id="btn-agregar-item-compra" class="btn-secundario">+ Agregar producto</button>
+        <div style="margin-top:16px;">
+          <button type="submit" class="btn-primario">Registrar compra</button>
+        </div>
+      </form>
+    </div>
+    <div class="panel">
+      <h3>Historial de compras</h3>
+      <table>
+        <thead><tr><th>Fecha</th><th>Comprobante</th><th>Items</th><th>Bultos</th></tr></thead>
+        <tbody id="tabla-compras"><tr><td colspan="4">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- INVENTARIO -->
+  <section class="seccion" id="seccion-inventario">
+    <div class="encabezado-seccion">
+      <div><h1>Inventario</h1><p>Conteo fisico de stock y libro de movimientos por producto</p></div>
+    </div>
+    <div class="panel">
+      <h3>Nuevo conteo fisico</h3>
+      <div class="fila-formulario">
+        <select id="conteo-sucursal"></select>
+        <input id="conteo-notas" placeholder="Notas (opcional, ej: Conteo mensual)">
+      </div>
+      <table>
+        <thead><tr><th>Producto</th><th>Stock en sistema</th><th>Cantidad contada</th></tr></thead>
+        <tbody id="tabla-conteo-form"><tr><td colspan="3">Elegi una sucursal</td></tr></tbody>
+      </table>
+      <div style="margin-top:16px;">
+        <button class="btn-primario" id="btn-registrar-conteo">Registrar conteo</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Historial de conteos</h3>
+      <table>
+        <thead><tr><th>Fecha</th><th>Notas</th><th>Productos con desvio</th><th></th></tr></thead>
+        <tbody id="tabla-historial-conteos"><tr><td colspan="4">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h3>Libro de movimientos (kardex)</h3>
+      <div class="barra-filtro-fechas">
+        <div class="campo-fecha"><label>Desde</label><input type="date" id="kardex-desde"></div>
+        <div class="campo-fecha"><label>Hasta</label><input type="date" id="kardex-hasta"></div>
+        <button class="btn-primario" id="btn-filtrar-kardex">Filtrar</button>
+      </div>
+      <table>
+        <thead><tr><th>Producto</th><th>Ingresos</th><th>Compras</th><th>Salidas</th><th>Ventas</th><th>Stock</th></tr></thead>
+        <tbody id="tabla-kardex"><tr><td colspan="6">Elegi un rango y toca Filtrar</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- TURNOS -->
+  <section class="seccion" id="seccion-turnos">
+    <div class="encabezado-seccion">
+      <div><h1>Turnos de caja</h1><p>Historial de aperturas, cierres y diferencias de arqueo</p></div>
+    </div>
+    <div class="panel">
+      <table>
+        <thead><tr><th>Turno</th><th>Apertura</th><th>Cierre</th><th>Apertura $</th><th>Esperado</th><th>Contado</th><th>Diferencia</th></tr></thead>
+        <tbody id="tabla-turnos"><tr><td colspan="7">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- FORMAS DE PAGO -->
+  <section class="seccion" id="seccion-formas-pago">
+    <div class="encabezado-seccion">
+      <div><h1>Formas de pago</h1><p>Bancos y proveedores que aparecen al elegir Debito, Credito, Transferencia o QR en el POS</p></div>
+    </div>
+    <div class="panel">
+      <h3>Agregar banco/proveedor</h3>
+      <form id="form-forma-pago" class="fila-formulario">
+        <select name="tipo" required>
+          <option value="debito">Debito</option>
+          <option value="credito">Credito</option>
+          <option value="transferencia">Transferencia</option>
+          <option value="qr">QR</option>
+        </select>
+        <input name="nombre" placeholder="Nombre (ej: Banco Galicia, Mercado Pago, MODO)" required>
+        <button type="submit" class="btn-primario">Agregar</button>
+      </form>
+    </div>
+    <div class="panel">
+      <table>
+        <thead><tr><th>Tipo</th><th>Nombre</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="tabla-formas-pago"><tr><td colspan="4">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- INFORMES -->
+  <section class="seccion" id="seccion-informes">
+    <div class="encabezado-seccion">
+      <div><h1>Informes</h1><p>Detalle de ventas por periodo, incluyendo anuladas</p></div>
+    </div>
+    <div class="panel">
+      <div class="barra-filtro-fechas">
+        <div class="campo-fecha"><label>Desde</label><input type="date" id="informe-desde"></div>
+        <div class="campo-fecha"><label>Hasta</label><input type="date" id="informe-hasta"></div>
+        <div class="campo-fecha"><label>Turno</label>
+          <select id="informe-turno"><option value="">Todos los turnos</option></select>
+        </div>
+        <button class="btn-primario" id="btn-filtrar-informe">Filtrar</button>
+      </div>
+      <table>
+        <thead><tr><th>Turno</th><th>Fecha</th><th>Comprobante</th><th>Total</th><th>Propina</th><th>Ganancia</th><th>Formas de pago</th><th>Estado</th></tr></thead>
+        <tbody id="tabla-informe-ventas"><tr><td colspan="8">Elegi un rango y toca Filtrar</td></tr></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h3>Productos mas vendidos en el periodo filtrado</h3>
+      <table>
+        <thead><tr><th>Producto</th><th>Cantidad vendida</th><th>Facturado</th><th>Ganancia</th></tr></thead>
+        <tbody id="tabla-informe-mas-vendidos"><tr><td colspan="4">Elegi un rango y toca Filtrar</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- SUCURSALES -->
+  <section class="seccion" id="seccion-sucursales">
+    <div class="encabezado-seccion">
+      <div><h1>Sucursales</h1><p>Locales donde se vende y se guarda stock</p></div>
+    </div>
+    <div class="panel">
+      <h3>Nueva sucursal</h3>
+      <form id="form-sucursal" class="fila-formulario">
+        <input name="nombre" placeholder="Nombre" required>
+        <input name="direccion" placeholder="Direccion (opcional)">
+        <input name="telefono" placeholder="Telefono (opcional)">
+        <button type="submit" class="btn-primario">Agregar</button>
+      </form>
+    </div>
+    <div class="panel">
+      <table>
+        <thead><tr><th>Nombre</th><th>Direccion</th><th>Telefono</th></tr></thead>
+        <tbody id="tabla-sucursales"><tr><td colspan="3">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- USUARIOS -->
+  <section class="seccion" id="seccion-usuarios">
+    <div class="encabezado-seccion">
+      <div><h1>Usuarios</h1><p>Usuario servidor (backoffice) y usuarios punto de venta</p></div>
+    </div>
+    <div class="panel">
+      <h3>Nuevo usuario</h3>
+      <form id="form-usuario" class="fila-formulario">
+        <input name="nombre" placeholder="Nombre completo" required>
+        <input name="username" placeholder="Usuario" required>
+        <input name="password" type="password" placeholder="Contrasena" required>
+        <select name="rol" required>
+          <option value="pos">Punto de venta</option>
+          <option value="servidor">Servidor</option>
+        </select>
+        <select name="sucursal_id" id="select-sucursal-usuario"><option value="">Sin sucursal</option></select>
+        <button type="submit" class="btn-primario">Crear</button>
+      </form>
+    </div>
+    <div class="panel">
+      <table>
+        <thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Sucursal</th></tr></thead>
+        <tbody id="tabla-usuarios"><tr><td colspan="4">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- CONFIG NEGOCIO -->
+  <section class="seccion" id="seccion-config">
+    <div class="encabezado-seccion">
+      <div><h1>Negocio</h1><p>Nombre del negocio y regimen fiscal — afecta como se calcula costo, IVA y ganancia</p></div>
+    </div>
+    <div class="panel">
+      <h3>Razon social</h3>
+      <form id="form-razon-social" class="fila-formulario">
+        <input name="razon_social" id="input-razon-social" placeholder="Nombre de tu negocio">
+        <button type="submit" class="btn-primario">Guardar</button>
+      </form>
+    </div>
+    <div class="panel">
+      <h3>Regimen fiscal</h3>
+      <div class="selector-regimen">
+        <button type="button" class="opcion-regimen" id="opcion-monotributo">
+          <div class="titulo">Monotributo</div>
+          <div class="desc">El IVA de las compras es un costo real (no se descuenta). El precio de venta no se discrimina en neto + IVA.</div>
+        </button>
+        <button type="button" class="opcion-regimen" id="opcion-ri">
+          <div class="titulo">Responsable Inscripto</div>
+          <div class="desc">El IVA de compras es credito fiscal (no forma parte del costo). El precio de venta se discrimina en neto + IVA debito fiscal.</div>
+        </button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div class="modal-fondo" id="modal-editar-producto">
+  <div class="modal-editar">
+    <h3>Editar producto</h3>
+    <form id="form-editar-producto">
+      <div class="campo"><label>Nombre</label><input name="nombre" required></div>
+      <div class="campo"><label>Categoria</label><select name="categoria_id" id="select-categoria-editar"><option value="">Sin categoria</option></select></div>
+      <div class="campo">
+        <label>Imagen actual</label>
+        <img class="preview-imagen-actual" id="preview-imagen-editar" src="" alt="">
+      </div>
+      <div class="campo"><label>URL de imagen</label><input name="imagen_url"></div>
+      <div class="campo">
+        <label>O subir archivo</label>
+        <div class="fila-subir-imagen">
+          <input type="file" id="input-archivo-imagen" accept="image/*">
+          <button type="button" class="btn-secundario" id="btn-subir-imagen">Subir</button>
+        </div>
+      </div>
+      <div class="campo"><label>Precio de venta</label><input name="precio_venta" type="number" step="0.01" required></div>
+      <div class="campo"><label>IVA %</label><input name="iva_porcentaje" type="number" step="0.1" required></div>
+      <div class="campo"><label>Stock minimo</label><input name="stock_minimo" type="number" required></div>
+      <div class="acciones-modal">
+        <button type="button" class="btn-secundario" id="btn-cancelar-editar">Cancelar</button>
+        <button type="submit" class="btn-primario">Guardar cambios</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-fondo" id="modal-detalle-conteo">
+  <div class="modal-editar">
+    <h3>Detalle del conteo</h3>
+    <table>
+      <thead><tr><th>Producto</th><th>Sistema</th><th>Contado</th><th>Diferencia</th></tr></thead>
+      <tbody id="tabla-detalle-conteo"></tbody>
+    </table>
+    <div class="acciones-modal">
+      <button type="button" class="btn-secundario" id="btn-cerrar-detalle-conteo" style="flex:1;">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
