@@ -1,5 +1,5 @@
 // Cambiar por la URL del backend cuando este desplegado (ej: https://mi-app.onrender.com)
-const API_BASE = window.API_BASE_URL || 'http://127.0.0.1:8000';
+const API_BASE = window.API_BASE_URL || 'https://sistema-ventas-stock.onrender.com';
 
 const Sesion = {
   guardar(token, rol, nombre, sucursalId) {
