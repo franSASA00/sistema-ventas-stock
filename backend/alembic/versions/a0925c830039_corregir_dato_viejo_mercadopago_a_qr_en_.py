@@ -23,7 +23,6 @@ def upgrade() -> None:
     # Corrige ventas ya guardadas con el valor viejo 'mercadopago', que dejo de existir
     # cuando ese metodo de pago se renombro a la categoria general 'qr'.
     op.execute("UPDATE ventas_pago SET metodo_pago = 'QR' WHERE metodo_pago = 'MERCADOPAGO'")
-    op.execute("UPDATE ventas_pago SET metodo_pago = 'qr' WHERE metodo_pago = 'mercadopago'")
 
 
 def downgrade() -> None:
