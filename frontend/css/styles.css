@@ -105,3 +105,17 @@ input, select {
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(-8px); }
 .toast.error { background: var(--rojo); }
 .toast.success { background: var(--verde-caja-oscuro); }
+
+.checkbox-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 0;
+}
+.checkbox-list label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9em;
+  cursor: pointer;
+}

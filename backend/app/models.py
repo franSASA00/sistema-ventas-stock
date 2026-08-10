@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 
 from sqlalchemy import (
-    Column, Integer, String, Float, DateTime, ForeignKey, Enum, Boolean, UniqueConstraint
+    Column, Integer, String, Float, DateTime, ForeignKey, Enum, Boolean, UniqueConstraint, Table
 )
 from sqlalchemy.orm import relationship
 
@@ -50,6 +50,14 @@ class TipoMovimientoStock(str, enum.Enum):
     CONTEO = "conteo"              # correccion generada por un conteo fisico de inventario
 
 
+usuario_sucursales = Table(
+    "usuario_sucursales",
+    Base.metadata,
+    Column("usuario_id", Integer, ForeignKey("usuarios.id"), primary_key=True),
+    Column("sucursal_id", Integer, ForeignKey("sucursales.id"), primary_key=True),
+)
+
+
 class Sucursal(Base):
     __tablename__ = "sucursales"
 
@@ -58,7 +66,7 @@ class Sucursal(Base):
     direccion = Column(String, nullable=True)
     telefono = Column(String, nullable=True)
 
-    usuarios = relationship("Usuario", back_populates="sucursal")
+    usuarios = relationship("Usuario", secondary=usuario_sucursales, back_populates="sucursales")
     stocks = relationship("Stock", back_populates="sucursal")
 
 
@@ -70,10 +78,9 @@ class Usuario(Base):
     username = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
     rol = Column(Enum(RolUsuario), nullable=False, default=RolUsuario.POS)
-    sucursal_id = Column(Integer, ForeignKey("sucursales.id"), nullable=True)
     activo = Column(Boolean, default=True)
 
-    sucursal = relationship("Sucursal", back_populates="usuarios")
+    sucursales = relationship("Sucursal", secondary=usuario_sucursales, back_populates="usuarios")
 
 
 class Categoria(Base):

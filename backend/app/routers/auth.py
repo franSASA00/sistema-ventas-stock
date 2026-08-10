@@ -16,4 +16,4 @@ def login(datos: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario o contrasena incorrectos")
 
     token = crear_token({"sub": usuario.username, "rol": usuario.rol.value})
-    return Token(access_token=token, rol=usuario.rol, nombre=usuario.nombre, sucursal_id=usuario.sucursal_id)
+    return Token(access_token=token, rol=usuario.rol, nombre=usuario.nombre, sucursales=usuario.sucursales)

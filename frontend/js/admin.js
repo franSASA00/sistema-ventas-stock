@@ -351,9 +351,10 @@ async function cargarSucursales() {
     tbody.innerHTML = sucursalesCache.map((s) => `<tr><td>${s.nombre}</td><td>${s.direccion || '-'}</td><td>${s.telefono || '-'}</td></tr>`).join('')
       || '<tr><td colspan="3">Todavia no hay sucursales</td></tr>';
 
-    const selectUsuario = document.getElementById('select-sucursal-usuario');
-    selectUsuario.innerHTML = '<option value="">Sin sucursal</option>' +
-      sucursalesCache.map((s) => `<option value="${s.id}">${s.nombre}</option>`).join('');
+    const checksUsuario = document.getElementById('checks-sucursal-usuario');
+    checksUsuario.innerHTML = sucursalesCache.map((s) => `
+      <label><input type="checkbox" name="sucursal_ids" value="${s.id}"> ${s.nombre}</label>
+    `).join('') || '<span>Crea una sucursal primero</span>';
   } catch (err) {
     mostrarToast(err.message, 'error');
   }
@@ -386,12 +387,12 @@ async function cargarUsuarios() {
     const usuarios = await apiFetch('/usuarios');
     const tbody = document.getElementById('tabla-usuarios');
     tbody.innerHTML = usuarios.map((u) => {
-      const sucursal = sucursalesCache.find((s) => s.id === u.sucursal_id);
+      const nombresSucursales = (u.sucursales || []).map((s) => s.nombre).join(', ');
       return `<tr>
         <td>${u.nombre}</td>
         <td class="mono">${u.username}</td>
         <td><span class="badge ${u.rol === 'servidor' ? 'badge-verde' : 'badge-ambar'}">${u.rol === 'servidor' ? 'Servidor' : 'Punto de venta'}</span></td>
-        <td>${sucursal ? sucursal.nombre : '-'}</td>
+        <td>${nombresSucursales || '-'}</td>
       </tr>`;
     }).join('') || '<tr><td colspan="4">Todavia no hay usuarios</td></tr>';
   } catch (err) {
@@ -410,7 +411,7 @@ document.getElementById('form-usuario').addEventListener('submit', async (e) => 
         username: form.username.value.trim(),
         password: form.password.value,
         rol: form.rol.value,
-        sucursal_id: form.sucursal_id.value ? Number(form.sucursal_id.value) : null,
+        sucursal_ids: Array.from(form.querySelectorAll('input[name="sucursal_ids"]:checked')).map((el) => Number(el.value)),
       },
     });
     mostrarToast('Usuario creado', 'success');

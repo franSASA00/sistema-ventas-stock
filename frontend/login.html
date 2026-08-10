@@ -58,6 +58,18 @@
     margin-top: 16px;
     display: none;
   }
+  .lista-sucursales { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+  .btn-sucursal {
+    width: 100%;
+    padding: 14px;
+    text-align: left;
+    background: var(--fondo, #f4f4f4);
+    border: 1px solid var(--borde, #ddd);
+    border-radius: 10px;
+    font-size: 15px;
+    cursor: pointer;
+  }
+  .btn-sucursal:hover { background: var(--verde-caja); color: white; }
 </style>
 </head>
 <body>
@@ -69,20 +81,31 @@
         <div class="marca-sub">Acceso al sistema</div>
       </div>
     </div>
-    <h1>Iniciar sesion</h1>
-    <div class="subtitulo">Ingresa con tu usuario de servidor o de punto de venta.</div>
-    <form id="form-login">
-      <label for="username">Usuario</label>
-      <input id="username" type="text" autocomplete="username" required autofocus>
-      <label for="password">Contrasena</label>
-      <input id="password" type="password" autocomplete="current-password" required>
-      <button type="submit" class="btn-ingresar">Ingresar</button>
-      <div class="error-msg" id="error-msg"></div>
-    </form>
-  </div>
 
+    <div id="panel-login">
+      <h1>Iniciar sesion</h1>
+      <div class="subtitulo">Ingresa con tu usuario de servidor o de punto de venta.</div>
+      <form id="form-login">
+        <label for="username">Usuario</label>
+        <input id="username" type="text" autocomplete="username" required autofocus>
+        <label for="password">Contrasena</label>
+        <input id="password" type="password" autocomplete="current-password" required>
+        <button type="submit" class="btn-ingresar">Ingresar</button>
+        <div class="error-msg" id="error-msg"></div>
+      </form>
+    </div>
+
+    <div id="panel-sucursal" style="display:none;">
+      <h1>Elegi tu sucursal</h1>
+      <div class="subtitulo">Tu usuario esta asignado a mas de una sucursal.</div>
+      <div class="lista-sucursales" id="lista-sucursales"></div>
+    </div>
+  </div>
+<script src="js/config.js"></script>
 <script src="js/api.js"></script>
 <script>
+  let loginPendiente = null;
+
   document.getElementById('form-login').addEventListener('submit', async (e) => {
     e.preventDefault();
     const errorEl = document.getElementById('error-msg');
@@ -91,13 +114,49 @@
     const password = document.getElementById('password').value;
     try {
       const data = await login(username, password);
-      Sesion.guardar(data.access_token, data.rol, data.nombre, data.sucursal_id);
-      window.location.href = data.rol === 'servidor' ? 'admin.html' : 'pos.html';
+      manejarLogin(data);
     } catch (err) {
       errorEl.textContent = err.message || 'No se pudo iniciar sesion';
       errorEl.style.display = 'block';
     }
   });
+
+  function manejarLogin(data) {
+    if (data.rol === 'servidor') {
+      Sesion.guardar(data.access_token, data.rol, data.nombre, null);
+      window.location.href = 'admin.html';
+      return;
+    }
+
+    const sucursales = data.sucursales || [];
+    if (sucursales.length === 0) {
+      const errorEl = document.getElementById('error-msg');
+      errorEl.textContent = 'Este usuario no tiene ninguna sucursal asignada. Contacta a un administrador.';
+      errorEl.style.display = 'block';
+      return;
+    }
+
+    if (sucursales.length === 1) {
+      Sesion.guardar(data.access_token, data.rol, data.nombre, sucursales[0].id);
+      window.location.href = 'pos.html';
+      return;
+    }
+
+    loginPendiente = data;
+    document.getElementById('panel-login').style.display = 'none';
+    const panel = document.getElementById('panel-sucursal');
+    panel.style.display = 'block';
+    const lista = document.getElementById('lista-sucursales');
+    lista.innerHTML = sucursales.map((s) =>
+      `<button type="button" class="btn-sucursal" data-id="${s.id}">${s.nombre}</button>`
+    ).join('');
+    lista.querySelectorAll('.btn-sucursal').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        Sesion.guardar(loginPendiente.access_token, loginPendiente.rol, loginPendiente.nombre, Number(btn.dataset.id));
+        window.location.href = 'pos.html';
+      });
+    });
+  }
 
   if (Sesion.activa()) {
     window.location.href = Sesion.rol() === 'servidor' ? 'admin.html' : 'pos.html';

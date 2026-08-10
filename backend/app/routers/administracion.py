@@ -34,8 +34,9 @@ def crear_usuario(datos: UsuarioCreate, db: Session = Depends(get_db)):
         username=datos.username,
         password_hash=hash_password(datos.password),
         rol=datos.rol,
-        sucursal_id=datos.sucursal_id,
     )
+    if datos.sucursal_ids:
+        usuario.sucursales = db.query(Sucursal).filter(Sucursal.id.in_(datos.sucursal_ids)).all()
     db.add(usuario)
     db.commit()
     db.refresh(usuario)

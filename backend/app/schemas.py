@@ -17,7 +17,7 @@ class Token(BaseModel):
     token_type: str = "bearer"
     rol: RolUsuario
     nombre: str
-    sucursal_id: Optional[int] = None
+    sucursales: List["SucursalOut"] = []
 
 
 # ---------- Sucursal ----------
@@ -42,7 +42,7 @@ class UsuarioCreate(BaseModel):
     username: str
     password: str
     rol: RolUsuario
-    sucursal_id: Optional[int] = None
+    sucursal_ids: List[int] = []
 
 
 class UsuarioOut(BaseModel):
@@ -51,7 +51,7 @@ class UsuarioOut(BaseModel):
     nombre: str
     username: str
     rol: RolUsuario
-    sucursal_id: Optional[int]
+    sucursales: List["SucursalOut"] = []
     activo: bool
 
 
@@ -364,3 +364,6 @@ class FormaPagoDetalleOut(BaseModel):
     tipo: MetodoPago
     nombre: str
     activo: bool
+
+Token.model_rebuild()
+UsuarioOut.model_rebuild()
