@@ -13,8 +13,24 @@ const DIAS_SEMANA = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabad
 
 // ---------- Navegacion ----------
 document.querySelectorAll('nav button[data-seccion]').forEach((btn) => {
-  btn.addEventListener('click', () => cambiarSeccion(btn.dataset.seccion));
+  btn.addEventListener('click', () => {
+    cambiarSeccion(btn.dataset.seccion);
+    document.body.classList.remove('menu-movil-abierto');
+  });
 });
+
+const btnMenuMovil = document.getElementById('btn-menu-movil');
+if (btnMenuMovil) {
+  btnMenuMovil.addEventListener('click', () => {
+    document.body.classList.toggle('menu-movil-abierto');
+  });
+}
+const fondoMenuMovil = document.getElementById('fondo-menu-movil');
+if (fondoMenuMovil) {
+  fondoMenuMovil.addEventListener('click', () => {
+    document.body.classList.remove('menu-movil-abierto');
+  });
+}
 
 function cambiarSeccion(id) {
   document.querySelectorAll('.seccion').forEach((s) => s.classList.remove('activa'));
