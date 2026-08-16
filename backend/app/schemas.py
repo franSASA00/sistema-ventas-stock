@@ -59,6 +59,15 @@ class UsuarioOut(BaseModel):
 class CategoriaCreate(BaseModel):
     nombre: str
     notas: Optional[str] = None
+    stockeable: bool = True
+    visible_pos: bool = True
+
+
+class CategoriaUpdate(BaseModel):
+    nombre: Optional[str] = None
+    notas: Optional[str] = None
+    stockeable: Optional[bool] = None
+    visible_pos: Optional[bool] = None
 
 
 class CategoriaOut(BaseModel):
@@ -66,6 +75,8 @@ class CategoriaOut(BaseModel):
     id: int
     nombre: str
     notas: Optional[str] = None
+    stockeable: bool = True
+    visible_pos: bool = True
 
 
 # ---------- Producto ----------
@@ -77,6 +88,8 @@ class ProductoCreate(BaseModel):
     iva_porcentaje: float = 21.0
     precio_venta: float = 0.0
     stock_minimo: int = 0
+    insumo_id: Optional[int] = None
+    insumo_cantidad: Optional[int] = 1
 
 
 class ProductoUpdate(BaseModel):
@@ -87,6 +100,8 @@ class ProductoUpdate(BaseModel):
     precio_venta: Optional[float] = None
     stock_minimo: Optional[int] = None
     activo: Optional[bool] = None
+    insumo_id: Optional[int] = None
+    insumo_cantidad: Optional[int] = None
 
 
 class ProductoOut(BaseModel):
@@ -101,10 +116,14 @@ class ProductoOut(BaseModel):
     costo_promedio: float
     stock_minimo: int
     activo: bool
+    insumo_id: Optional[int] = None
+    insumo_cantidad: Optional[int] = None
+    insumo_nombre: Optional[str] = None
 
 
 class ProductoConStock(ProductoOut):
     stock_disponible: int = 0
+    stockeable: bool = True
 
 
 # ---------- Stock ----------
@@ -171,6 +190,29 @@ class ProveedorOut(ProveedorCreate):
     id: int
 
 
+# ---------- Clientes ----------
+class ClienteCreate(BaseModel):
+    nombre: str
+    apellido: Optional[str] = None
+    telefono: Optional[str] = None
+    direccion: Optional[str] = None
+
+
+class ClienteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    nombre: str
+    apellido: Optional[str] = None
+    telefono: Optional[str] = None
+    direccion: Optional[str] = None
+
+
+class ClienteConEstadisticas(ClienteOut):
+    total_compras: int = 0
+    total_gastado: float = 0.0
+    ultima_compra: Optional[datetime] = None
+
+
 # ---------- Ventas ----------
 class VentaDetalleIn(BaseModel):
     producto_id: int
@@ -190,6 +232,11 @@ class VentaCreate(BaseModel):
     detalles: List[VentaDetalleIn]
     id_cliente: Optional[str] = None       # UUID generado en el POS (idempotencia al reintentar)
     fecha_local: Optional[datetime] = None  # hora real de la venta si se hizo offline y se sincroniza despues
+    cliente_id: Optional[int] = None       # cliente registrado (opcional)
+    cliente_nombre_nuevo: Optional[str] = None    # si se carga un cliente nuevo desde el POS
+    cliente_apellido_nuevo: Optional[str] = None
+    cliente_telefono_nuevo: Optional[str] = None
+    cliente_direccion_nueva: Optional[str] = None
 
 
 class VentaDetalleOut(BaseModel):
@@ -214,6 +261,9 @@ class VentaOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     id_cliente: Optional[str] = None
+    cliente_id: Optional[int] = None
+    cliente_nombre: Optional[str] = None
+    cliente_frecuente: bool = False
     sucursal_id: int
     usuario_id: int
     turno_id: Optional[int]

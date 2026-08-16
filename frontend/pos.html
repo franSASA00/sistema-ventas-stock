@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Punto de Venta</title>
 <link rel="stylesheet" href="css/styles.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0F5C4C">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
   body { height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
 
@@ -243,6 +246,22 @@
   .fila-cobro.restante { font-weight: 700; font-size: 15px; margin-top: 4px; }
   .fila-cobro.restante.saldado { color: var(--verde-caja-oscuro); }
   .fila-cobro.restante.pendiente { color: var(--rojo); }
+  .campo-cliente { position: relative; margin-bottom: 10px; }
+  .sugerencias-cliente {
+    position: absolute; top: 100%; left: 0; right: 0; background: var(--superficie);
+    border: 1px solid var(--linea); border-radius: 10px; margin-top: 4px; max-height: 160px;
+    overflow-y: auto; z-index: 20; display: none; box-shadow: 0 8px 20px -8px rgba(0,0,0,0.2);
+  }
+  .sugerencias-cliente.visible { display: block; }
+  .sugerencia-cliente-item { padding: 9px 12px; font-size: 13.5px; cursor: pointer; }
+  .sugerencia-cliente-item:hover { background: var(--verde-caja-claro); }
+  .cliente-seleccionado-chip {
+    display: none; align-items: center; justify-content: space-between; gap: 8px;
+    background: var(--verde-caja-claro); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; font-size: 13.5px;
+  }
+  .cliente-seleccionado-chip.visible { display: flex; }
+  .campos-cliente-nuevo { display: none; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+  .campos-cliente-nuevo.visible { display: flex; }
   .opciones-pago { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
   .opcion-pago {
     background: var(--fondo); border: 2px solid transparent; border-radius: 10px;
@@ -412,6 +431,20 @@
     <button class="btn-cerrar-modal-x" id="btn-cerrar-modal-pago">✕</button>
     <h3>Cobro</h3>
     <div class="sub">Agregá una o más formas de pago hasta cubrir el total.</div>
+    <label for="input-cliente-buscar">Cliente (opcional)</label>
+    <div class="campo-cliente">
+      <input id="input-cliente-buscar" type="text" placeholder="Buscar cliente o cargar uno nuevo..." autocomplete="off">
+      <div class="sugerencias-cliente" id="sugerencias-cliente"></div>
+    </div>
+    <div class="cliente-seleccionado-chip" id="cliente-seleccionado-chip">
+      <span id="cliente-seleccionado-nombre"></span>
+      <button type="button" class="btn-cerrar-modal-x" id="btn-quitar-cliente" style="width:22px;height:22px;font-size:12px;">✕</button>
+    </div>
+    <div class="campos-cliente-nuevo" id="campos-cliente-nuevo">
+      <input id="cliente-nuevo-apellido" placeholder="Apellido (opcional)">
+      <input id="cliente-nuevo-telefono" placeholder="Telefono (opcional)">
+      <input id="cliente-nuevo-direccion" placeholder="Direccion (opcional)">
+    </div>
     <label for="input-propina">Propina (opcional)</label>
     <div class="campo-monto" style="margin-bottom:14px;">
       <span>$</span>
@@ -507,6 +540,13 @@
 
 <script src="js/config.js"></script>
 <script src="js/api.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js').catch(() => {});
+    });
+  }
+</script>
 <script src="js/offline.js"></script>
 <script src="js/pos.js"></script>
 </body>

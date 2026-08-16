@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Backoffice · Ventas y Stock</title>
 <link rel="stylesheet" href="css/styles.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0F5C4C">
+<link rel="apple-touch-icon" href="icon-192.png">
 <script src="js/vendor/chart.umd.js"></script>
 <style>
   body { display: flex; height: 100vh; overflow: hidden; }
@@ -127,6 +130,7 @@
     <button data-seccion="turnos">🕒 Turnos</button>
     <button data-seccion="formas-pago">💳 Formas de pago</button>
     <button data-seccion="informes">📈 Informes</button>
+    <button data-seccion="clientes">🧑‍🤝‍🧑 Clientes</button>
     <button data-seccion="sucursales">🏬 Sucursales</button>
     <button data-seccion="usuarios">👤 Usuarios</button>
     <button data-seccion="config">⚙️ Negocio</button>
@@ -194,6 +198,8 @@
         <input name="iva_porcentaje" type="number" step="0.1" placeholder="IVA %" value="21" required>
         <input name="precio_venta" type="number" step="0.01" placeholder="Precio de venta" required>
         <input name="stock_minimo" type="number" placeholder="Stock minimo" value="0">
+        <select name="insumo_id" id="select-insumo-producto"><option value="">Sin insumo</option></select>
+        <input name="insumo_cantidad" type="number" placeholder="Cant. insumo por venta" value="1" min="1">
         <button type="submit" class="btn-primario">Agregar</button>
       </form>
     </div>
@@ -205,7 +211,7 @@
         </label>
       </h3>
       <table>
-        <thead><tr><th></th><th>Codigo</th><th>Nombre</th><th>Categoria</th><th>Precio venta</th><th>Costo prom.</th><th>IVA</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th></th><th>Codigo</th><th>Nombre</th><th>Categoria</th><th>Precio venta</th><th>Costo prom.</th><th>IVA</th><th>Insumo</th><th>Estado</th><th></th></tr></thead>
         <tbody id="tabla-productos"><tr><td colspan="9">Cargando...</td></tr></tbody>
       </table>
     </div>
@@ -221,13 +227,19 @@
       <form id="form-categoria" class="fila-formulario">
         <input name="nombre" placeholder="Nombre de la categoria" required>
         <input name="notas" placeholder="Notas (opcional)">
+        <label style="display:flex; align-items:center; gap:6px; font-size:0.9em;">
+          <input type="checkbox" name="stockeable" checked> Lleva stock propio
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; font-size:0.9em;">
+          <input type="checkbox" name="visible_pos" checked> Visible en el POS
+        </label>
         <button type="submit" class="btn-primario">Agregar</button>
       </form>
     </div>
     <div class="panel">
       <table>
-        <thead><tr><th>Nombre</th><th>Notas</th><th></th></tr></thead>
-        <tbody id="tabla-categorias"><tr><td colspan="3">Cargando...</td></tr></tbody>
+        <thead><tr><th>Nombre</th><th>Notas</th><th>Stock propio</th><th>Visible POS</th><th></th></tr></thead>
+        <tbody id="tabla-categorias"><tr><td colspan="5">Cargando...</td></tr></tbody>
       </table>
     </div>
   </section>
@@ -379,7 +391,33 @@
     </div>
   </section>
 
-  <!-- SUCURSALES -->
+  <!-- CLIENTES -->
+  <section class="seccion" id="seccion-clientes">
+    <div class="encabezado-seccion">
+      <div><h1>Clientes</h1><p>Listado de clientes y analisis de sus compras</p></div>
+    </div>
+    <div class="panel">
+      <h3>Nuevo cliente</h3>
+      <form id="form-cliente" class="fila-formulario">
+        <input name="nombre" placeholder="Nombre" required>
+        <input name="apellido" placeholder="Apellido (opcional)">
+        <input name="telefono" placeholder="Telefono (opcional)">
+        <input name="direccion" placeholder="Direccion (opcional)">
+        <button type="submit" class="btn-primario">Agregar</button>
+      </form>
+    </div>
+    <div class="panel">
+      <h3 style="display:flex; align-items:center; justify-content:space-between;">
+        Analisis de ventas por cliente
+        <span style="font-size:12.5px; font-weight:500; color:var(--texto-tenue);">Clientes con 10+ compras en el mes actual aparecen marcados como frecuentes</span>
+      </h3>
+      <table>
+        <thead><tr><th>Cliente</th><th>Telefono</th><th>Direccion</th><th>Compras</th><th>Total gastado</th><th>Ticket prom.</th><th>Ultima compra</th></tr></thead>
+        <tbody id="tabla-clientes"><tr><td colspan="7">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
   <section class="seccion" id="seccion-sucursales">
     <div class="encabezado-seccion">
       <div><h1>Sucursales</h1><p>Locales donde se vende y se guarda stock</p></div>
@@ -478,6 +516,8 @@
       <div class="campo"><label>Precio de venta</label><input name="precio_venta" type="number" step="0.01" required></div>
       <div class="campo"><label>IVA %</label><input name="iva_porcentaje" type="number" step="0.1" required></div>
       <div class="campo"><label>Stock minimo</label><input name="stock_minimo" type="number" required></div>
+      <div class="campo"><label>Insumo</label><select name="insumo_id" id="select-insumo-editar"><option value="">Sin insumo</option></select></div>
+      <div class="campo"><label>Cant. insumo por venta</label><input name="insumo_cantidad" type="number" min="1" value="1"></div>
       <div class="acciones-modal">
         <button type="button" class="btn-secundario" id="btn-cancelar-editar">Cancelar</button>
         <button type="submit" class="btn-primario">Guardar cambios</button>
@@ -501,6 +541,13 @@
 
 <script src="js/config.js"></script>
 <script src="js/api.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js').catch(() => {});
+    });
+  }
+</script>
 <script src="js/admin.js"></script>
 </body>
 </html>

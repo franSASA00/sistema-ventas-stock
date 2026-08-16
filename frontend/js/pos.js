@@ -149,7 +149,7 @@ document.getElementById('select-categoria').addEventListener('change', () => {
 
 async function cargarProductos() {
   try {
-    const query = new URLSearchParams({ sucursal_id: sucursalId });
+    const query = new URLSearchParams({ sucursal_id: sucursalId, solo_visibles_pos: 'true' });
     productos = await apiFetch(`/productos?${query.toString()}`);
     marcarConexion(true);
     await OfflineDB.guardarProductosCache(productos);
@@ -189,8 +189,8 @@ function renderizarProductos(lista) {
   }
   grid.innerHTML = '';
   lista.forEach((p) => {
-    const sinStock = p.stock_disponible <= 0;
-    const stockBajo = p.stock_disponible > 0 && p.stock_disponible <= (p.stock_minimo || 0);
+    const sinStock = p.stockeable && p.stock_disponible <= 0;
+    const stockBajo = p.stockeable && p.stock_disponible > 0 && p.stock_disponible <= (p.stock_minimo || 0);
     const btn = document.createElement('button');
     btn.className = 'tarjeta-producto';
     btn.disabled = sinStock;
@@ -206,7 +206,7 @@ function renderizarProductos(lista) {
         <div class="tp-fila">
           <span class="tp-precio">${formatoMoneda(p.precio_venta)}</span>
         </div>
-        <div class="tp-stock ${stockBajo ? 'bajo' : ''}">${sinStock ? 'Sin stock' : `Stock: ${p.stock_disponible}`}</div>
+        <div class="tp-stock ${stockBajo ? 'bajo' : ''}">${p.stockeable ? (sinStock ? 'Sin stock' : `Stock: ${p.stock_disponible}`) : 'Disponible'}</div>
       </div>
     `;
     btn.addEventListener('click', () => agregarAlCarrito(p));
@@ -217,7 +217,7 @@ function renderizarProductos(lista) {
 function agregarAlCarrito(producto) {
   const item = carrito[producto.id];
   const cantidadActual = item ? item.cantidad : 0;
-  if (cantidadActual + 1 > producto.stock_disponible) {
+  if (producto.stockeable && cantidadActual + 1 > producto.stock_disponible) {
     mostrarToast(`No hay mas stock disponible de "${producto.nombre}"`, 'error');
     return;
   }
@@ -417,6 +417,64 @@ function actualizarRestante() {
   }
 }
 
+let clienteSeleccionadoId = null;
+let timerBusquedaCliente = null;
+
+document.getElementById('input-cliente-buscar').addEventListener('input', (e) => {
+  clienteSeleccionadoId = null;
+  document.getElementById('campos-cliente-nuevo').classList.toggle('visible', e.target.value.trim().length > 0);
+  clearTimeout(timerBusquedaCliente);
+  const texto = e.target.value.trim();
+  const cont = document.getElementById('sugerencias-cliente');
+  if (texto.length < 2) {
+    cont.classList.remove('visible');
+    return;
+  }
+  timerBusquedaCliente = setTimeout(async () => {
+    try {
+      const resultados = await apiFetch(`/clientes?buscar=${encodeURIComponent(texto)}`);
+      if (resultados.length === 0) {
+        cont.classList.remove('visible');
+        return;
+      }
+      cont.innerHTML = resultados.map((c) => `
+        <div class="sugerencia-cliente-item" data-id="${c.id}" data-nombre="${escaparHtml(c.nombre)}${c.apellido ? ' ' + escaparHtml(c.apellido) : ''}">
+          ${escaparHtml(c.nombre)}${c.apellido ? ' ' + escaparHtml(c.apellido) : ''}${c.telefono ? ` — ${escaparHtml(c.telefono)}` : ''}
+        </div>
+      `).join('');
+      cont.classList.add('visible');
+      cont.querySelectorAll('.sugerencia-cliente-item').forEach((item) => {
+        item.addEventListener('click', () => seleccionarClienteExistente(Number(item.dataset.id), item.dataset.nombre));
+      });
+    } catch (err) { /* sin conexion: se ignora la busqueda, se puede seguir cargando como nuevo */ }
+  }, 300);
+});
+
+function seleccionarClienteExistente(id, nombre) {
+  clienteSeleccionadoId = id;
+  document.getElementById('input-cliente-buscar').value = '';
+  document.getElementById('sugerencias-cliente').classList.remove('visible');
+  document.getElementById('campos-cliente-nuevo').classList.remove('visible');
+  document.getElementById('cliente-seleccionado-nombre').textContent = nombre;
+  document.getElementById('cliente-seleccionado-chip').classList.add('visible');
+}
+
+document.getElementById('btn-quitar-cliente').addEventListener('click', () => {
+  clienteSeleccionadoId = null;
+  document.getElementById('cliente-seleccionado-chip').classList.remove('visible');
+});
+
+function reiniciarCampoCliente() {
+  clienteSeleccionadoId = null;
+  document.getElementById('input-cliente-buscar').value = '';
+  document.getElementById('cliente-nuevo-apellido').value = '';
+  document.getElementById('cliente-nuevo-telefono').value = '';
+  document.getElementById('cliente-nuevo-direccion').value = '';
+  document.getElementById('campos-cliente-nuevo').classList.remove('visible');
+  document.getElementById('cliente-seleccionado-chip').classList.remove('visible');
+  document.getElementById('sugerencias-cliente').classList.remove('visible');
+}
+
 document.getElementById('btn-confirmar-cobro').addEventListener('click', () => {
   const propina = Number(document.getElementById('input-propina').value) || 0;
   confirmarVenta(propina, pagosAgregados);
@@ -435,11 +493,24 @@ async function confirmarVenta(propina, pagos) {
     id_cliente: idCliente,
   };
 
+  if (clienteSeleccionadoId) {
+    payload.cliente_id = clienteSeleccionadoId;
+  } else if (document.getElementById('input-cliente-buscar').value.trim()) {
+    payload.cliente_nombre_nuevo = document.getElementById('input-cliente-buscar').value.trim();
+    payload.cliente_apellido_nuevo = document.getElementById('cliente-nuevo-apellido').value.trim() || null;
+    payload.cliente_telefono_nuevo = document.getElementById('cliente-nuevo-telefono').value.trim() || null;
+    payload.cliente_direccion_nueva = document.getElementById('cliente-nuevo-direccion').value.trim() || null;
+  }
+
   try {
     const venta = await apiFetch('/ventas', { method: 'POST', body: payload });
     marcarConexion(true);
     document.getElementById('modal-pago').classList.remove('visible');
     mostrarComprobante(venta, false);
+    if (venta.cliente_frecuente) {
+      mostrarToast('Cliente frecuente: ya supero las 10 compras este mes.', 'success');
+    }
+    reiniciarCampoCliente();
     carrito = {};
     renderizarTicket();
     await cargarProductos();

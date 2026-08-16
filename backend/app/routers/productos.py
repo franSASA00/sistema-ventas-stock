@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Producto, Stock, RolUsuario
+from app.models import Producto, Categoria, Stock, RolUsuario
 from app.schemas import ProductoCreate, ProductoUpdate, ProductoOut, ProductoConStock
 from app.security import requiere_rol, usuario_actual
 
@@ -87,6 +87,7 @@ def listar_productos(
     buscar: Optional[str] = None,
     categoria_id: Optional[int] = None,
     incluir_inactivos: bool = False,
+    solo_visibles_pos: bool = False,
     db: Session = Depends(get_db),
     _usuario=Depends(usuario_actual),
 ):
@@ -97,6 +98,10 @@ def listar_productos(
         query = query.filter(Producto.activo == True)  # noqa: E712
     if categoria_id is not None:
         query = query.filter(Producto.categoria_id == categoria_id)
+    if solo_visibles_pos:
+        query = query.outerjoin(Categoria, Producto.categoria_id == Categoria.id).filter(
+            (Producto.categoria_id.is_(None)) | (Categoria.visible_pos == True)  # noqa: E712
+        )
     if buscar:
         like = f"%{buscar}%"
         query = query.filter((Producto.nombre.ilike(like)) | (Producto.codigo.ilike(like)))
@@ -110,6 +115,7 @@ def listar_productos(
             stock_disponible = stock.cantidad if stock else 0
         item = ProductoConStock.model_validate(p)
         item.stock_disponible = stock_disponible
+        item.stockeable = p.categoria_rel.stockeable if p.categoria_rel else True
         resultado.append(item)
     return resultado
 

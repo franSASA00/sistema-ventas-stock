@@ -6,13 +6,52 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Venta, VentaDetalle, VentaPago, Producto, Stock, Turno, MovimientoStock, TipoMovimientoStock, EstadoVenta, RolUsuario
+from app.models import Venta, VentaDetalle, VentaPago, Producto, Stock, Turno, MovimientoStock, TipoMovimientoStock, EstadoVenta, RolUsuario, Cliente
 from app.security import requiere_rol
 
 router = APIRouter(prefix="/reportes", tags=["reportes"], dependencies=[Depends(requiere_rol(RolUsuario.SERVIDOR))])
 
 DIAS_SEMANA = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo"]
 NOMBRES_MES = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+
+
+@router.get("/clientes")
+def reporte_ventas_por_cliente(
+    desde: Optional[datetime] = None,
+    hasta: Optional[datetime] = None,
+    sucursal_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """Analisis de ventas detalladas por cliente: cantidad de compras, total gastado,
+    ticket promedio y ultima compra, en el periodo filtrado. Solo incluye ventas con
+    cliente registrado (las ventas sin cliente quedan afuera de este listado)."""
+    query = _query_ventas_activas(db, desde, hasta, sucursal_id).filter(Venta.cliente_id.isnot(None))
+
+    filas = query.with_entities(
+        Venta.cliente_id,
+        func.count(Venta.id).label("cantidad_compras"),
+        func.sum(Venta.total + Venta.propina).label("total_gastado"),
+        func.max(Venta.fecha).label("ultima_compra"),
+    ).group_by(Venta.cliente_id).order_by(func.sum(Venta.total + Venta.propina).desc()).all()
+
+    resultado = []
+    for fila in filas:
+        cliente = db.query(Cliente).get(fila.cliente_id)
+        if not cliente:
+            continue
+        total = round(fila.total_gastado or 0, 2)
+        cantidad = fila.cantidad_compras or 0
+        resultado.append({
+            "cliente_id": cliente.id,
+            "nombre": cliente.nombre_completo,
+            "telefono": cliente.telefono,
+            "direccion": cliente.direccion,
+            "cantidad_compras": cantidad,
+            "total_gastado": total,
+            "ticket_promedio": round(total / cantidad, 2) if cantidad else 0,
+            "ultima_compra": fila.ultima_compra,
+        })
+    return resultado
 
 
 def _query_ventas_activas(db: Session, desde, hasta, sucursal_id, turno_id=None):

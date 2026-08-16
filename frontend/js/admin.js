@@ -34,6 +34,7 @@ function cargarDatosSeccion(id) {
   if (id === 'formas-pago') cargarFormasPago();
   if (id === 'informes') cargarSelectorTurnosInforme();
   if (id === 'sucursales') cargarSucursales();
+  if (id === 'clientes') cargarClientes();
   if (id === 'usuarios') cargarUsuarios();
   if (id === 'config') cargarConfigFiscal();
 }
@@ -42,6 +43,7 @@ let productosCache = [];
 let sucursalesCache = [];
 let categoriasCache = [];
 let proveedoresCache = [];
+let clientesCache = [];
 
 // ---------- Nombre del negocio en el sidebar ----------
 async function cargarNombreNegocio() {
@@ -152,12 +154,21 @@ async function cargarCategorias() {
       <tr>
         <td>${c.nombre}</td>
         <td>${c.notas || '-'}</td>
+        <td><input type="checkbox" class="check-stockeable" data-id="${c.id}" ${c.stockeable ? 'checked' : ''}></td>
+        <td><input type="checkbox" class="check-visible-pos" data-id="${c.id}" ${c.visible_pos ? 'checked' : ''}></td>
         <td><button class="btn-accion-tabla btn-inactivar-fila" data-id="${c.id}">Eliminar</button></td>
       </tr>
-    `).join('') || '<tr><td colspan="3">Todavia no hay categorias</td></tr>';
+    `).join('') || '<tr><td colspan="5">Todavia no hay categorias</td></tr>';
 
     tbody.querySelectorAll('button[data-id]').forEach((btn) => {
       btn.addEventListener('click', () => eliminarCategoria(Number(btn.dataset.id)));
+    });
+
+    tbody.querySelectorAll('.check-stockeable').forEach((chk) => {
+      chk.addEventListener('change', () => actualizarCategoria(Number(chk.dataset.id), { stockeable: chk.checked }));
+    });
+    tbody.querySelectorAll('.check-visible-pos').forEach((chk) => {
+      chk.addEventListener('change', () => actualizarCategoria(Number(chk.dataset.id), { visible_pos: chk.checked }));
     });
   } catch (err) {
     mostrarToast(err.message, 'error');
@@ -170,7 +181,12 @@ document.getElementById('form-categoria').addEventListener('submit', async (e) =
   try {
     await apiFetch('/categorias', {
       method: 'POST',
-      body: { nombre: form.nombre.value.trim(), notas: form.notas.value.trim() || null },
+      body: {
+        nombre: form.nombre.value.trim(),
+        notas: form.notas.value.trim() || null,
+        stockeable: form.stockeable.checked,
+        visible_pos: form.visible_pos.checked,
+      },
     });
     mostrarToast('Categoria agregada', 'success');
     form.reset();
@@ -179,6 +195,16 @@ document.getElementById('form-categoria').addEventListener('submit', async (e) =
     mostrarToast(err.message, 'error');
   }
 });
+
+async function actualizarCategoria(id, cambios) {
+  try {
+    await apiFetch(`/categorias/${id}`, { method: 'PUT', body: cambios });
+    mostrarToast('Categoria actualizada', 'success');
+    cargarCategorias();
+  } catch (err) {
+    mostrarToast(err.message, 'error');
+  }
+}
 
 async function eliminarCategoria(id) {
   if (!confirm('¿Eliminar esta categoria? Los productos que la usan quedaran sin categoria.')) return;
@@ -196,6 +222,13 @@ async function cargarProductos() {
   try {
     const verInactivos = document.getElementById('check-ver-inactivos').checked;
     productosCache = await apiFetch(`/productos?incluir_inactivos=${verInactivos}`);
+
+    const selectInsumo = document.getElementById('select-insumo-producto');
+    if (selectInsumo) {
+      selectInsumo.innerHTML = '<option value="">Sin insumo</option>' +
+        productosCache.map((p) => `<option value="${p.id}">${p.nombre}</option>`).join('');
+    }
+
     const tbody = document.getElementById('tabla-productos');
     tbody.innerHTML = productosCache.map((p) => {
       const categoria = categoriasCache.find((c) => c.id === p.categoria_id);
@@ -210,6 +243,7 @@ async function cargarProductos() {
         <td class="mono">${formatoMoneda(p.precio_venta)}</td>
         <td class="mono">${formatoMoneda(p.costo_promedio)}</td>
         <td>${p.iva_porcentaje}%</td>
+        <td>${p.insumo_nombre ? `${p.insumo_nombre} x${p.insumo_cantidad}` : '-'}</td>
         <td>${p.activo ? '<span class="badge badge-verde">Activo</span>' : '<span class="badge badge-rojo">Inactivo</span>'}</td>
         <td class="celda-acciones">
           <button class="btn-accion-tabla btn-editar-fila" data-id="${p.id}" data-accion="editar">Editar</button>
@@ -248,6 +282,8 @@ document.getElementById('form-producto').addEventListener('submit', async (e) =>
     iva_porcentaje: Number(form.iva_porcentaje.value),
     precio_venta: Number(form.precio_venta.value),
     stock_minimo: Number(form.stock_minimo.value) || 0,
+    insumo_id: form.insumo_id.value ? Number(form.insumo_id.value) : null,
+    insumo_cantidad: form.insumo_id.value ? (Number(form.insumo_cantidad.value) || 1) : null,
   };
   try {
     await apiFetch('/productos', { method: 'POST', body: datos });
@@ -281,6 +317,11 @@ function abrirModalEditar(id) {
   form.precio_venta.value = producto.precio_venta;
   form.iva_porcentaje.value = producto.iva_porcentaje;
   form.stock_minimo.value = producto.stock_minimo;
+  const selectInsumoEditar = document.getElementById('select-insumo-editar');
+  selectInsumoEditar.innerHTML = '<option value="">Sin insumo</option>' +
+    productosCache.filter((p) => p.id !== id).map((p) => `<option value="${p.id}">${p.nombre}</option>`).join('');
+  selectInsumoEditar.value = producto.insumo_id || '';
+  form.insumo_cantidad.value = producto.insumo_cantidad || 1;
   const preview = document.getElementById('preview-imagen-editar');
   preview.src = producto.imagen_url || '';
   preview.style.display = producto.imagen_url ? 'block' : 'none';
@@ -305,6 +346,8 @@ document.getElementById('form-editar-producto').addEventListener('submit', async
         precio_venta: Number(form.precio_venta.value),
         iva_porcentaje: Number(form.iva_porcentaje.value),
         stock_minimo: Number(form.stock_minimo.value),
+        insumo_id: form.insumo_id.value ? Number(form.insumo_id.value) : null,
+        insumo_cantidad: form.insumo_id.value ? (Number(form.insumo_cantidad.value) || 1) : null,
       },
     });
     mostrarToast('Producto actualizado', 'success');
@@ -338,6 +381,48 @@ document.getElementById('btn-subir-imagen').addEventListener('click', async () =
     form.imagen_url.value = data.imagen_url;
     mostrarToast('Imagen subida', 'success');
     cargarProductos();
+  } catch (err) {
+    mostrarToast(err.message, 'error');
+  }
+});
+
+// ---------- Clientes ----------
+async function cargarClientes() {
+  try {
+    const analisis = await apiFetch('/reportes/clientes');
+    const tbody = document.getElementById('tabla-clientes');
+    tbody.innerHTML = analisis.map((c) => `
+      <tr>
+        <td>${c.nombre}${c.cantidad_compras >= 10 ? ' <span class="badge badge-ambar">Frecuente</span>' : ''}</td>
+        <td>${c.telefono || '-'}</td>
+        <td>${c.direccion || '-'}</td>
+        <td>${c.cantidad_compras}</td>
+        <td class="mono">${formatoMoneda(c.total_gastado)}</td>
+        <td class="mono">${formatoMoneda(c.ticket_promedio)}</td>
+        <td>${c.ultima_compra ? new Date(c.ultima_compra).toLocaleDateString('es-AR') : '-'}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="7">Todavia no hay ventas con cliente registrado</td></tr>';
+  } catch (err) {
+    mostrarToast(err.message, 'error');
+  }
+}
+
+document.getElementById('form-cliente').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  try {
+    await apiFetch('/clientes', {
+      method: 'POST',
+      body: {
+        nombre: form.nombre.value.trim(),
+        apellido: form.apellido.value.trim() || null,
+        telefono: form.telefono.value.trim() || null,
+        direccion: form.direccion.value.trim() || null,
+      },
+    });
+    mostrarToast('Cliente agregado', 'success');
+    form.reset();
+    cargarClientes();
   } catch (err) {
     mostrarToast(err.message, 'error');
   }

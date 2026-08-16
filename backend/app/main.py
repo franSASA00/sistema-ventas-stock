@@ -11,7 +11,7 @@ from app.models import Usuario, RolUsuario, ConfiguracionFiscal
 from app.security import hash_password
 from app.routers import (
     auth, productos, compras, ventas, stock, administracion, reportes,
-    config_fiscal, turnos, categorias, inventario, formas_pago,
+    config_fiscal, turnos, categorias, inventario, formas_pago, clientes,
 )
 
 # El esquema de la base de datos lo maneja Alembic (ver alembic/ y el comando
@@ -45,6 +45,7 @@ app.include_router(formas_pago.router)
 app.include_router(ventas.router)
 app.include_router(turnos.router)
 app.include_router(reportes.router)
+app.include_router(clientes.router)
 
 
 def _seed_inicial():

@@ -90,6 +90,8 @@ class Categoria(Base):
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String, unique=True, nullable=False)
     notas = Column(String, nullable=True)
+    stockeable = Column(Boolean, nullable=False, default=True)
+    visible_pos = Column(Boolean, nullable=False, default=True)
 
     productos = relationship("Producto", back_populates="categoria_rel")
 
@@ -107,9 +109,16 @@ class Producto(Base):
     costo_promedio = Column(Float, nullable=False, default=0.0)
     stock_minimo = Column(Integer, nullable=False, default=0)
     activo = Column(Boolean, default=True)
+    insumo_id = Column(Integer, ForeignKey("productos.id"), nullable=True)
+    insumo_cantidad = Column(Integer, nullable=True, default=1)
 
     stocks = relationship("Stock", back_populates="producto")
     categoria_rel = relationship("Categoria", back_populates="productos")
+    insumo = relationship("Producto", remote_side="Producto.id")
+
+    @property
+    def insumo_nombre(self):
+        return self.insumo.nombre if self.insumo else None
 
 
 class Stock(Base):
@@ -255,11 +264,28 @@ class MovimientoCaja(Base):
     turno = relationship("Turno", back_populates="movimientos")
 
 
+class Cliente(Base):
+    """Cliente registrado opcionalmente en una venta (nombre, apellido, telefono, direccion).
+    Permite buscar/reutilizar clientes ya cargados y analizar su historial de compras."""
+    __tablename__ = "clientes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String, nullable=False)
+    apellido = Column(String, nullable=True)
+    telefono = Column(String, nullable=True)
+    direccion = Column(String, nullable=True)
+
+    @property
+    def nombre_completo(self):
+        return f"{self.nombre} {self.apellido}".strip() if self.apellido else self.nombre
+
+
 class Venta(Base):
     __tablename__ = "ventas"
 
     id = Column(Integer, primary_key=True, index=True)
     id_cliente = Column(String, unique=True, nullable=True, index=True)  # UUID generado en el POS; evita duplicar al reintentar
+    cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=True)  # cliente registrado (opcional), distinto del UUID de arriba
     sucursal_id = Column(Integer, ForeignKey("sucursales.id"), nullable=False)
     usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
     turno_id = Column(Integer, ForeignKey("turnos.id"), nullable=True)
@@ -276,6 +302,7 @@ class Venta(Base):
     detalles = relationship("VentaDetalle", back_populates="venta", cascade="all, delete-orphan")
     pagos = relationship("VentaPago", back_populates="venta", cascade="all, delete-orphan")
     turno = relationship("Turno", back_populates="ventas")
+    cliente = relationship("Cliente")
 
 
 class FormaPagoDetalle(Base):

@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ingresar · Sistema de Ventas</title>
 <link rel="stylesheet" href="css/styles.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0F5C4C">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
   body {
     min-height: 100vh;
@@ -103,6 +106,13 @@
   </div>
 <script src="js/config.js"></script>
 <script src="js/api.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js').catch(() => {});
+    });
+  }
+</script>
 <script>
   let loginPendiente = null;
 

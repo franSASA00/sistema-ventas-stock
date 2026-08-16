@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.calculos import calcular_ganancia_unitaria
 from app.database import get_db
-from app.models import Venta, VentaDetalle, VentaPago, Producto, Stock, ConfiguracionFiscal, EstadoVenta, TipoMovimientoStock, RolUsuario
+from app.models import Venta, VentaDetalle, VentaPago, Producto, Stock, Cliente, ConfiguracionFiscal, EstadoVenta, TipoMovimientoStock, RolUsuario
+from sqlalchemy import func, extract
 from app.movimientos import registrar_movimiento_stock
 from app.routers.config_fiscal import _obtener_o_crear_config
 from app.routers.turnos import turno_abierto_de
@@ -52,24 +53,57 @@ def registrar_venta(
 
     config: ConfiguracionFiscal = _obtener_o_crear_config(db)
 
+    # 0) Resolver el cliente: uno ya existente por id, o uno nuevo cargado desde el POS
+    cliente_id = datos.cliente_id
+    if not cliente_id and datos.cliente_nombre_nuevo:
+        nombre_nuevo = datos.cliente_nombre_nuevo.strip()
+        if nombre_nuevo:
+            cliente_nuevo = Cliente(
+                nombre=nombre_nuevo,
+                apellido=(datos.cliente_apellido_nuevo or "").strip() or None,
+                telefono=(datos.cliente_telefono_nuevo or "").strip() or None,
+                direccion=(datos.cliente_direccion_nueva or "").strip() or None,
+            )
+            db.add(cliente_nuevo)
+            db.flush()
+            cliente_id = cliente_nuevo.id
+
     # 1) Validar stock disponible de TODOS los items antes de tocar nada
     productos_y_stock = {}
+    insumos_requeridos = {}  # insumo_id -> cantidad total necesaria en esta venta
     for item in datos.detalles:
         producto = db.query(Producto).get(item.producto_id)
         if not producto or not producto.activo:
             raise HTTPException(status_code=404, detail=f"Producto {item.producto_id} no encontrado")
+        stockeable = producto.categoria_rel.stockeable if producto.categoria_rel else True
         stock = db.query(Stock).filter(
             Stock.producto_id == producto.id, Stock.sucursal_id == datos.sucursal_id
         ).first()
         disponible = stock.cantidad if stock else 0
         if item.cantidad <= 0:
             raise HTTPException(status_code=400, detail="La cantidad debe ser mayor a 0")
-        if disponible < item.cantidad:
+        if stockeable and disponible < item.cantidad:
             raise HTTPException(
                 status_code=409,
                 detail=f"Stock insuficiente para '{producto.nombre}' (disponible: {disponible})",
             )
         productos_y_stock[item.producto_id] = (producto, stock)
+
+        if producto.insumo_id:
+            cantidad_insumo = (producto.insumo_cantidad or 1) * item.cantidad
+            insumos_requeridos[producto.insumo_id] = insumos_requeridos.get(producto.insumo_id, 0) + cantidad_insumo
+
+    for insumo_id, cantidad_necesaria in insumos_requeridos.items():
+        insumo = db.query(Producto).get(insumo_id)
+        stock_insumo = db.query(Stock).filter(
+            Stock.producto_id == insumo_id, Stock.sucursal_id == datos.sucursal_id
+        ).first()
+        disponible_insumo = stock_insumo.cantidad if stock_insumo else 0
+        if disponible_insumo < cantidad_necesaria:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Stock insuficiente de insumo '{insumo.nombre if insumo else insumo_id}' (disponible: {disponible_insumo})",
+            )
 
     # 2) Crear la venta y sus detalles, descontando stock y calculando ganancia
     venta = Venta(
@@ -78,6 +112,7 @@ def registrar_venta(
         turno_id=turno.id if turno else None,
         propina=datos.propina,
         id_cliente=datos.id_cliente,
+        cliente_id=cliente_id,
         numero_comprobante=_siguiente_numero_comprobante(db, datos.sucursal_id),
         fecha=datos.fecha_local or datetime.utcnow(),
     )
@@ -108,9 +143,17 @@ def registrar_venta(
         )
         db.add(detalle)
 
-        registrar_movimiento_stock(
-            db, producto.id, datos.sucursal_id, TipoMovimientoStock.VENTA, -item.cantidad, referencia_id=venta.id
-        )
+        stockeable = producto.categoria_rel.stockeable if producto.categoria_rel else True
+        if stockeable:
+            registrar_movimiento_stock(
+                db, producto.id, datos.sucursal_id, TipoMovimientoStock.VENTA, -item.cantidad, referencia_id=venta.id
+            )
+
+        if producto.insumo_id:
+            cantidad_insumo = (producto.insumo_cantidad or 1) * item.cantidad
+            registrar_movimiento_stock(
+                db, producto.insumo_id, datos.sucursal_id, TipoMovimientoStock.VENTA, -cantidad_insumo, referencia_id=venta.id
+            )
 
         total += subtotal
         total_neto += subtotal_neto
@@ -143,7 +186,18 @@ def registrar_venta(
 
     db.commit()
     db.refresh(venta)
-    return venta
+
+    resultado = VentaOut.model_validate(venta)
+    if venta.cliente_id:
+        resultado.cliente_nombre = venta.cliente.nombre_completo
+        ventas_del_mes = db.query(func.count(Venta.id)).filter(
+            Venta.cliente_id == venta.cliente_id,
+            Venta.estado == EstadoVenta.ACTIVA,
+            extract("year", Venta.fecha) == venta.fecha.year,
+            extract("month", Venta.fecha) == venta.fecha.month,
+        ).scalar()
+        resultado.cliente_frecuente = (ventas_del_mes or 0) >= 10
+    return resultado
 
 
 @router.post("/{venta_id}/anular", response_model=VentaOut)
@@ -166,10 +220,18 @@ def anular_venta(
             raise HTTPException(status_code=403, detail="Solo podes anular ventas de tu turno actual")
 
     for detalle in venta.detalles:
-        registrar_movimiento_stock(
-            db, detalle.producto_id, venta.sucursal_id, TipoMovimientoStock.ANULACION,
-            detalle.cantidad, referencia_id=venta.id,
-        )
+        stockeable = detalle.producto.categoria_rel.stockeable if detalle.producto.categoria_rel else True
+        if stockeable:
+            registrar_movimiento_stock(
+                db, detalle.producto_id, venta.sucursal_id, TipoMovimientoStock.ANULACION,
+                detalle.cantidad, referencia_id=venta.id,
+            )
+        if detalle.producto.insumo_id:
+            cantidad_insumo = (detalle.producto.insumo_cantidad or 1) * detalle.cantidad
+            registrar_movimiento_stock(
+                db, detalle.producto.insumo_id, venta.sucursal_id, TipoMovimientoStock.ANULACION,
+                cantidad_insumo, referencia_id=venta.id,
+            )
 
     venta.estado = EstadoVenta.ANULADA
     venta.anulada_en = datetime.utcnow()
