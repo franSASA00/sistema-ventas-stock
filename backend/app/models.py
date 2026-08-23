@@ -78,9 +78,25 @@ class Usuario(Base):
     username = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
     rol = Column(Enum(RolUsuario), nullable=False, default=RolUsuario.POS)
+    email = Column(String, nullable=True)
     activo = Column(Boolean, default=True)
 
     sucursales = relationship("Sucursal", secondary=usuario_sucursales, back_populates="usuarios")
+
+
+class PasswordResetToken(Base):
+    """Token temporal para el flujo de 'olvide mi contrasena' via email. Se genera al
+    pedir el reseteo, dura poco tiempo, y se marca como usado una vez consumido."""
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    token = Column(String, unique=True, index=True, nullable=False)
+    expira = Column(DateTime, nullable=False)
+    usado = Column(Boolean, default=False)
+    creado = Column(DateTime, default=datetime.utcnow)
+
+    usuario = relationship("Usuario")
 
 
 class Categoria(Base):

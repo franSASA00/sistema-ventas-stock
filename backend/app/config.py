@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 480
     admin_username: str = "admin"
     admin_password: str = "admin123"
+    sendgrid_api_key: str = ""
+    email_from: str = ""
+    frontend_url: str = "http://127.0.0.1:5500"
 
     class Config:
         env_file = ".env"

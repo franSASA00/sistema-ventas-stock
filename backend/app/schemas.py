@@ -43,6 +43,20 @@ class UsuarioCreate(BaseModel):
     password: str
     rol: RolUsuario
     sucursal_ids: List[int] = []
+    email: Optional[str] = None
+
+
+class ResetearPasswordRequest(BaseModel):
+    nueva_password: str
+
+
+class OlvidePasswordRequest(BaseModel):
+    email: str
+
+
+class ResetearPasswordConTokenRequest(BaseModel):
+    token: str
+    nueva_password: str
 
 
 class UsuarioOut(BaseModel):
@@ -53,6 +67,7 @@ class UsuarioOut(BaseModel):
     rol: RolUsuario
     sucursales: List["SucursalOut"] = []
     activo: bool
+    email: Optional[str] = None
 
 
 # ---------- Categorias ----------

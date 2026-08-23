@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Sucursal, Usuario, RolUsuario
-from app.schemas import SucursalCreate, SucursalOut, UsuarioCreate, UsuarioOut
+from app.schemas import SucursalCreate, SucursalOut, UsuarioCreate, UsuarioOut, ResetearPasswordRequest
 from app.security import requiere_rol, hash_password
 
 router = APIRouter(tags=["administracion"], dependencies=[Depends(requiere_rol(RolUsuario.SERVIDOR))])
@@ -34,6 +34,7 @@ def crear_usuario(datos: UsuarioCreate, db: Session = Depends(get_db)):
         username=datos.username,
         password_hash=hash_password(datos.password),
         rol=datos.rol,
+        email=datos.email,
     )
     if datos.sucursal_ids:
         usuario.sucursales = db.query(Sucursal).filter(Sucursal.id.in_(datos.sucursal_ids)).all()
@@ -46,3 +47,18 @@ def crear_usuario(datos: UsuarioCreate, db: Session = Depends(get_db)):
 @router.get("/usuarios", response_model=List[UsuarioOut])
 def listar_usuarios(db: Session = Depends(get_db)):
     return db.query(Usuario).all()
+
+
+@router.put("/usuarios/{usuario_id}/resetear-password", response_model=UsuarioOut)
+def resetear_password(usuario_id: int, datos: ResetearPasswordRequest, db: Session = Depends(get_db)):
+    """Un usuario servidor (admin) puede resetear la contrasena de cualquier usuario,
+    sin necesidad de conocer la contrasena anterior. Util cuando alguien se olvida la suya."""
+    usuario = db.query(Usuario).get(usuario_id)
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    if len(datos.nueva_password) < 4:
+        raise HTTPException(status_code=400, detail="La contrasena debe tener al menos 4 caracteres")
+    usuario.password_hash = hash_password(datos.nueva_password)
+    db.commit()
+    db.refresh(usuario)
+    return usuario

@@ -477,6 +477,7 @@
       <form id="form-usuario" class="fila-formulario">
         <input name="nombre" placeholder="Nombre completo" required>
         <input name="username" placeholder="Usuario" required>
+        <input name="email" type="email" placeholder="Email (opcional, para recuperar contrasena)">
         <input name="password" type="password" placeholder="Contrasena" required>
         <select name="rol" required>
           <option value="pos">Punto de venta</option>
@@ -488,8 +489,8 @@
     </div>
     <div class="panel">
       <table>
-        <thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Sucursal</th></tr></thead>
-        <tbody id="tabla-usuarios"><tr><td colspan="4">Cargando...</td></tr></tbody>
+        <thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Sucursal</th><th></th></tr></thead>
+        <tbody id="tabla-usuarios"><tr><td colspan="5">Cargando...</td></tr></tbody>
       </table>
     </div>
   </section>

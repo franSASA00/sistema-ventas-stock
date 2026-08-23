@@ -494,8 +494,28 @@ async function cargarUsuarios() {
         <td class="mono">${u.username}</td>
         <td><span class="badge ${u.rol === 'servidor' ? 'badge-verde' : 'badge-ambar'}">${u.rol === 'servidor' ? 'Servidor' : 'Punto de venta'}</span></td>
         <td>${nombresSucursales || '-'}</td>
+        <td><button class="btn-accion-tabla btn-resetear-password" data-id="${u.id}" data-nombre="${u.nombre}">Resetear contrasena</button></td>
       </tr>`;
-    }).join('') || '<tr><td colspan="4">Todavia no hay usuarios</td></tr>';
+    }).join('') || '<tr><td colspan="5">Todavia no hay usuarios</td></tr>';
+
+    tbody.querySelectorAll('.btn-resetear-password').forEach((btn) => {
+      btn.addEventListener('click', () => resetearPassword(Number(btn.dataset.id), btn.dataset.nombre));
+    });
+  } catch (err) {
+    mostrarToast(err.message, 'error');
+  }
+}
+
+async function resetearPassword(id, nombre) {
+  const nueva = prompt(`Nueva contrasena para ${nombre} (minimo 4 caracteres):`);
+  if (!nueva) return;
+  if (nueva.length < 4) {
+    mostrarToast('La contrasena debe tener al menos 4 caracteres', 'error');
+    return;
+  }
+  try {
+    await apiFetch(`/usuarios/${id}/resetear-password`, { method: 'PUT', body: { nueva_password: nueva } });
+    mostrarToast('Contrasena actualizada', 'success');
   } catch (err) {
     mostrarToast(err.message, 'error');
   }
@@ -512,6 +532,7 @@ document.getElementById('form-usuario').addEventListener('submit', async (e) => 
         username: form.username.value.trim(),
         password: form.password.value,
         rol: form.rol.value,
+        email: form.email.value.trim() || null,
         sucursal_ids: Array.from(form.querySelectorAll('input[name="sucursal_ids"]:checked')).map((el) => Number(el.value)),
       },
     });
